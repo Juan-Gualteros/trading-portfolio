@@ -1,0 +1,125 @@
+<div class="calendar-card card">
+  <!-- Encabezado de Navegación del Calendario -->
+  <div class="calendar-header">
+    <div class="calendar-title-group">
+      <span class="calendar-icon">📅</span>
+      <div>
+        <h3>Calendario de Rendimiento (Trading Heatmap)</h3>
+        <p>Visualiza tus días en profit, pérdidas y distribución temporal</p>
+      </div>
+    </div>
+
+    <div class="calendar-nav">
+      <button class="btn btn-sm btn-nav" (click)="changeMonth(-1)">‹</button>
+      <span class="current-month-label">{{ monthNames[currentDate.getMonth()] }} {{ currentDate.getFullYear() }}</span>
+      <button class="btn btn-sm btn-nav" (click)="changeMonth(1)">›</button>
+      <button class="btn btn-sm btn-today" (click)="goToCurrentMonth()">Hoy</button>
+    </div>
+  </div>
+
+  <!-- Resumen Estadístico del Mes -->
+  <div class="month-stats-banner">
+    <div class="stat-pill">
+      <span class="label">PnL Mensual:</span>
+      <strong [class.text-success]="monthPnL >= 0" [class.text-danger]="monthPnL < 0">
+        {{ monthPnL >= 0 ? '+' : '' }}${{ monthPnL | number:'1.2-2' }}
+      </strong>
+    </div>
+    <div class="stat-pill">
+      <span class="label">Días Verdes:</span>
+      <strong class="text-success">{{ greenDays }} días 🟢</strong>
+    </div>
+    <div class="stat-pill">
+      <span class="label">Días Rojos:</span>
+      <strong class="text-danger">{{ redDays }} días 🔴</strong>
+    </div>
+    <div class="stat-pill" *ngIf="bestDayPnL > 0">
+      <span class="label">Mejor Día:</span>
+      <strong class="text-success">+${{ bestDayPnL | number:'1.2-2' }}</strong>
+    </div>
+  </div>
+
+  <!-- Grilla de Días de la Semana -->
+  <div class="calendar-grid-header">
+    <div class="weekday-col" *ngFor="let day of weekDays">{{ day }}</div>
+  </div>
+
+  <!-- Celdas del Calendario -->
+  <div class="calendar-grid">
+    <div 
+      *ngFor="let cell of calendarDays" 
+      class="calendar-cell"
+      [ngClass]="{
+        'not-current-month': !cell.isCurrentMonth,
+        'day-profit': cell.tradesCount > 0 && cell.pnl > 0,
+        'day-loss': cell.tradesCount > 0 && cell.pnl < 0,
+        'day-breakeven': cell.tradesCount > 0 && cell.pnl === 0,
+        'has-trades': cell.tradesCount > 0
+      }"
+      (click)="selectDay(cell)">
+      
+      <div class="cell-top">
+        <span class="day-number">{{ cell.dayNumber }}</span>
+        <span class="trades-badge" *ngIf="cell.tradesCount > 0">{{ cell.tradesCount }} ops</span>
+      </div>
+
+      <div class="cell-pnl" *ngIf="cell.tradesCount > 0">
+        <span [class.pnl-pos]="cell.pnl > 0" [class.pnl-neg]="cell.pnl < 0">
+          {{ cell.pnl >= 0 ? '+' : '' }}${{ cell.pnl | number:'1.0-2' }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalle del Día Seleccionado -->
+  <div class="lightbox-backdrop" *ngIf="selectedDayModal">
+    <div class="card day-modal-content">
+      <div class="modal-header">
+        <h4>Operaciones del {{ selectedDayModal.date | date:'fullDate' }}</h4>
+        <button class="btn-close" (click)="selectedDayModal = null">×</button>
+      </div>
+      
+      <div class="day-modal-summary">
+        <span>Total operaciones: <strong>{{ selectedDayModal.trades.length }}</strong></span>
+        <span>PnL del día: 
+          <strong [class.text-success]="selectedDayModal.pnl >= 0" [class.text-danger]="selectedDayModal.pnl < 0">
+            {{ selectedDayModal.pnl >= 0 ? '+' : '' }}${{ selectedDayModal.pnl | number:'1.2-2' }}
+          </strong>
+        </span>
+      </div>
+
+      <div class="modal-trades-list">
+        <table class="modal-table">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Activo</th>
+              <th>Tipo</th>
+              <th>Volumen</th>
+              <th>Emoción</th>
+              <th>PnL ($)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of selectedDayModal.trades">
+              <td>{{ t.createdAt | date:'shortTime' }}</td>
+              <td><strong>{{ t.asset }}</strong></td>
+              <td>
+                <span class="badge" [ngClass]="t.trade_type === 'LONG' ? 'badge-success' : 'badge-danger'">
+                  {{ t.trade_type }}
+                </span>
+              </td>
+              <td>{{ t.volume }}</td>
+              <td><span class="emotion-tag">{{ t.emotion_state }}</span></td>
+              <td>
+                <strong [class.text-success]="t.pnl > 0" [class.text-danger]="t.pnl < 0">
+                  {{ t.pnl !== null ? (t.pnl >= 0 ? '+' : '') + '$' + (t.pnl | number:'1.2-2') : '-' }}
+                </strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

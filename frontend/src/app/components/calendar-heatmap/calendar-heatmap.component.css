@@ -1,0 +1,219 @@
+.calendar-card {
+  margin-top: 2rem;
+  padding: 1.5rem;
+}
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.calendar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.calendar-icon {
+  font-size: 1.8rem;
+}
+.calendar-title-group h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+.calendar-title-group p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-nav {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.btn-today {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.current-month-label {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #e2e8f0;
+  min-width: 140px;
+  text-align: center;
+}
+.month-stats-banner {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.stat-pill .label {
+  color: #94a3b8;
+}
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.weekday-col {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.calendar-cell {
+  min-height: 80px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+.calendar-cell.has-trades {
+  cursor: pointer;
+}
+.calendar-cell.has-trades:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.calendar-cell.not-current-month {
+  opacity: 0.25;
+}
+.calendar-cell.day-profit {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+.calendar-cell.day-profit:hover {
+  border-color: #10b981;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+.calendar-cell.day-loss {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.calendar-cell.day-loss:hover {
+  border-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+.calendar-cell.day-breakeven {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+.cell-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.day-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.trades-badge {
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.cell-pnl {
+  text-align: right;
+  margin-top: auto;
+}
+.pnl-pos {
+  color: #10b981;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+.pnl-neg {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+.day-modal-content {
+  max-width: 650px;
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.modal-header h4 {
+  margin: 0;
+  color: #fff;
+}
+.btn-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.day-modal-summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+.modal-trades-list {
+  max-height: 350px;
+  overflow-y: auto;
+}
+.modal-table {
+  width: 100%;
+  font-size: 0.85rem;
+}
+.modal-table th, .modal-table td {
+  padding: 0.6rem;
+}

@@ -1,0 +1,405 @@
+<div class="dashboard-header">
+  <div class="header-titles">
+    <h2>Dashboard de Rendimiento</h2>
+    <p>Visualiza el crecimiento de tu capital, métricas clave y psicología de trading.</p>
+  </div>
+  
+  <div class="header-actions" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+    <button class="btn btn-secondary" (click)="printReport()" title="Imprimir informe ejecutivo o guardar en PDF">
+      🖨️ Informe PDF
+    </button>
+    <div class="account-selector" *ngIf="accounts.length > 0">
+      <label>Cuenta de Trading:</label>
+      <select class="form-control form-control-sm" [(ngModel)]="selectedAccountId" (change)="onAccountChange($event)">
+        <option *ngFor="let acc of accounts" [value]="acc.id_account">
+          {{ acc.name || acc.account_name }} ({{ acc.market_type }})
+        </option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="loader" *ngIf="isLoading">Cargando métricas y gráficos...</div>
+
+<!-- Contenedor Principal cuando no está cargando -->
+<div *ngIf="!isLoading && selectedAccount">
+  
+  <!-- Resumen Ejecutivo de la Cuenta Activa -->
+  <div class="account-summary-strip card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.75rem; padding: 1.1rem 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+      <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(37, 99, 235, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+        💼
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h4 style="margin: 0; font-size: 1.15rem; color: #fff; font-weight: 700;">{{ selectedAccount.name }}</h4>
+          <span style="font-size: 0.75rem; background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+            Mercado: {{ selectedAccount.market_type }}
+          </span>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+          Balance Inicial: <strong style="color: #cbd5e1;">${{ metrics.initialCapital | number:'1.2-2' }} USD</strong>
+          <span style="margin: 0 8px;">•</span>
+          Historial Total: <strong style="color: #cbd5e1;">{{ allTrades.length }} operaciones</strong>
+          <span *ngIf="allTrades.length !== filteredTrades.length" style="color: #38bdf8;"> ({{ filteredTrades.length }} bajo filtro actual)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desglose Rápido de Operaciones y ROI -->
+    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+      <div style="text-align: right;">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Estatus de Operaciones</span>
+        <div style="display: flex; gap: 6px; margin-top: 3px;">
+          <span style="font-size: 0.82rem; font-weight: 600; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);">
+            {{ metrics.winningCount }} Ganadas
+          </span>
+          <span style="font-size: 0.82rem; font-weight: 600; color: #ef4444; background: rgba(239, 68, 68, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25);">
+            {{ metrics.losingCount }} Perdidas
+          </span>
+          <span *ngIf="metrics.openCount > 0" style="font-size: 0.82rem; font-weight: 600; color: #3b82f6; background: rgba(59, 130, 246, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.25);">
+            {{ metrics.openCount }} Abiertas
+          </span>
+        </div>
+      </div>
+
+      <div style="padding-left: 1.25rem; border-left: 1px solid rgba(255, 255, 255, 0.1); text-align: right;">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Rendimiento de Cuenta (ROI)</span>
+        <div style="font-size: 1.2rem; font-weight: 700; margin-top: 2px;" [ngClass]="metrics.totalPnL >= 0 ? 'text-success' : 'text-danger'">
+          {{ metrics.totalPnL >= 0 ? '+' : '' }}{{ metrics.roiPercentage }}%
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Barra de Filtros Gráficos -->
+  <div class="dashboard-filters card">
+    <div class="filter-group">
+      <label>Activo (Par):</label>
+      <select class="form-control" [(ngModel)]="filterAsset" (change)="onFilterChange()">
+        <option value="Todos">Todos los Activos</option>
+        <option *ngFor="let asset of availableAssets" [value]="asset">{{ asset }}</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Emoción Predominante:</label>
+      <select class="form-control" [(ngModel)]="filterEmotion" (change)="onFilterChange()">
+        <option value="Todas">Todas las Emociones</option>
+        <option *ngFor="let emo of availableEmotions" [value]="emo">{{ emo }}</option>
+      </select>
+    </div>
+    <div class="filter-summary">
+      <p>Mostrando <strong>{{ filteredTrades.length }}</strong> operaciones.</p>
+    </div>
+  </div>
+
+  <!-- Métricas Clave -->
+  <div class="metrics-grid">
+    <div class="metric-card" [class.glow-profit]="metrics.totalPnL >= 0" [class.glow-danger]="metrics.totalPnL < 0">
+      <div class="metric-title">Capital Actual</div>
+      <div class="metric-value">
+        ${{ metrics.currentCapital | number:'1.2-2' }}
+      </div>
+    </div>
+
+    <div class="metric-card" [class.glow-profit]="metrics.totalPnL >= 0" [class.glow-danger]="metrics.totalPnL < 0">
+      <div class="metric-title">PnL Neto</div>
+      <div class="metric-value" [ngClass]="{'text-success': metrics.totalPnL >= 0, 'text-danger': metrics.totalPnL < 0}">
+        {{ metrics.totalPnL >= 0 ? '+' : '' }}${{ metrics.totalPnL | number:'1.2-2' }}
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Win Rate (Tasa de Acierto)</div>
+      <div class="metric-value" [ngClass]="{'text-success': metrics.winRate >= 50, 'text-warning': metrics.winRate < 50 && metrics.winRate > 30, 'text-danger': metrics.winRate <= 30}">
+        {{ metrics.winRate }}%
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Profit Factor</div>
+      <div class="metric-value" [ngClass]="{'text-success': metrics.profitFactor >= 1, 'text-danger': metrics.profitFactor < 1}">
+        {{ metrics.profitFactor }}
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Max Drawdown</div>
+      <div class="metric-value text-danger">
+        {{ metrics.maxDrawdown }}%
+      </div>
+    </div>
+  </div>
+
+  <!-- Grilla de Gráficos Principales -->
+  <div class="charts-grid">
+    <!-- Gráfico Principal (Capital) -->
+    <div class="chart-container card chart-wide">
+      <h3>Curva de Capital (Equity Curve)</h3>
+      <div class="chart-wrapper">
+        <canvas baseChart
+                [data]="lineChartData"
+                [options]="lineChartOptions"
+                [type]="'line'">
+        </canvas>
+      </div>
+    </div>
+
+    <!-- Gráfico Secundario (Operaciones por Par) -->
+    <div class="chart-container card">
+      <h3>Distribución por Activo</h3>
+      <div class="chart-wrapper">
+        <canvas baseChart
+                [data]="assetChartData"
+                [options]="assetChartOptions"
+                [type]="'doughnut'">
+        </canvas>
+      </div>
+    </div>
+
+    <!-- Gráfico Terciario (Rendimiento por Emoción) -->
+    <div class="chart-container card">
+      <h3>Rendimiento (PnL) por Emoción</h3>
+      <div class="chart-wrapper">
+        <canvas baseChart
+                [data]="emotionChartData"
+                [options]="emotionChartOptions"
+                [type]="'bar'">
+        </canvas>
+      </div>
+    </div>
+
+    <!-- Gráfico Cuaternario (Radar Psicológico & Disciplina) -->
+    <div class="chart-container card">
+      <h3>Radar de Disciplina y Psicología</h3>
+      <div class="chart-wrapper">
+        <canvas baseChart
+                [data]="radarChartData"
+                [options]="radarChartOptions"
+                [type]="'radar'">
+        </canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN: AUDITOR CUANTITATIVO Y DE PSICOLOGÍA OPERATIVA -->
+  <div class="ai-auditor-card card">
+    <!-- Header del Auditor -->
+    <div class="ai-auditor-header">
+      <div class="ai-auditor-title-area">
+        <div class="ai-avatar-badge">
+          <span class="ai-icon">📊</span>
+          <span class="ai-live-pulse" title="Auditoría Operativa Activa"></span>
+        </div>
+        <div>
+          <div class="ai-badge-row">
+            <h3 class="ai-auditor-title">Auditor Cuantitativo y de Psicología Operativa</h3>
+            <span class="ai-version-pill" [class.ai-powered]="aiPsychologyReport?.isAiPowered">
+              {{ aiPsychologyReport?.isAiPowered ? '🤖 ' : '📊 ' }}{{ aiPsychologyReport?.engine || 'Motor Cuantitativo & Conductual' }}
+            </span>
+            <span class="ai-status-pill" [class.status-good]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70" [class.status-warn]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 70">
+              ● {{ (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70 ? 'Disciplina Estable' : 'Alerta de Riesgo' }}
+            </span>
+          </div>
+          <p class="ai-auditor-subtitle">
+            Auditoría estadística y conductual continua de sesgos cognitivos, control de riesgo y rentabilidad emocional.
+          </p>
+        </div>
+      </div>
+
+      <div class="ai-auditor-actions">
+        <button class="btn btn-ai-refresh" (click)="loadAiPsychologyReport(true)" [disabled]="isLoadingAiReport" title="Volver a auditar las operaciones de la cuenta">
+          <span *ngIf="!isLoadingAiReport">⚡ Re-Auditar Operaciones</span>
+          <span *ngIf="isLoadingAiReport" class="loading-spin">🔄 Auditando...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 1. Tarjetas Principales del Cockpit Ejecutivo -->
+    <div class="ai-cockpit-grid">
+      
+      <!-- Tarjeta 1: Arquetipo Psicológico Dominante -->
+      <div class="ai-cockpit-card card-archetype">
+        <div class="cockpit-card-header">
+          <span class="cockpit-label">Arquetipo Psicológico Dominante</span>
+          <span class="cockpit-tag">Perfil Mental</span>
+        </div>
+        <div class="archetype-body">
+          <div class="archetype-emoji">{{ aiPsychologyReport?.archetype?.emoji || '⛩️' }}</div>
+          <div class="archetype-info">
+            <h4 class="archetype-title">{{ aiPsychologyReport?.archetype?.title || 'Estratega Disciplinado' }}</h4>
+            <span class="archetype-sub">{{ aiPsychologyReport?.archetype?.subtitle || 'Disciplina inicial intacta (100%)' }}</span>
+          </div>
+        </div>
+        <p class="archetype-desc">
+          {{ aiPsychologyReport?.archetype?.description || 'Tu capital está 100% blindado y tus reglas listas para ejecutar. Inicias con el estándar de disciplina perfecto.' }}
+        </p>
+      </div>
+
+      <!-- Tarjeta 2: Índice de Disciplina Mental (Score 0-100) -->
+      <div class="ai-cockpit-card card-score">
+        <div class="cockpit-card-header">
+          <span class="cockpit-label">Índice de Disciplina Mental</span>
+          <span class="score-status-badge" [class.text-success]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50">
+            {{ (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? 'Excelente' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? 'Moderado' : 'Crítico') }}
+          </span>
+        </div>
+        <div class="score-number-row">
+          <span class="score-big" [class.text-success]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50">
+            {{ aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100 }}
+          </span>
+          <span class="score-total">/ 100</span>
+        </div>
+        <div class="score-progress-bar">
+          <div class="score-progress-fill" [style.width.%]="aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100" [style.background]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? 'linear-gradient(90deg, #10b981, #34d399)' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, #ef4444, #f87171)')"></div>
+        </div>
+        <div class="score-meta-text">
+          <span>Stop Loss: <strong>{{ slAdherencePct }}%</strong></span>
+          <span>Riesgo &le;2%: <strong>{{ riskAdherencePct }}%</strong></span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 3: Fuga de Capital por Indisciplina (USD) -->
+      <div class="ai-cockpit-card card-leakage">
+        <div class="cockpit-card-header">
+          <span class="cockpit-label">Fuga de Capital por Indisciplina</span>
+          <span class="cockpit-tag tag-danger" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0">Fuga Detectada</span>
+          <span class="cockpit-tag tag-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">Sin Fuga</span>
+        </div>
+        <div class="leakage-value-row">
+          <span class="leakage-amount" [class.text-danger]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0" [class.text-success]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">
+            {{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0 ? '-$' : '$' }}{{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) | number:'1.2-2' }}
+          </span>
+          <span class="leakage-currency">USD</span>
+        </div>
+        <p class="leakage-desc" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0">
+          Pérdidas acumuladas en entradas sin Stop Loss o tomadas por revancha post-pérdida.
+        </p>
+        <p class="leakage-desc text-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">
+          ¡Cero dinero perdido por indisciplina! Tu capital está 100% blindado por tus reglas.
+        </p>
+        <div class="leakage-footer" *ngIf="(aiPsychologyReport?.financialImpact?.potentialSavings || 0) > 0">
+          💡 Dinero recuperable respetando tu plan: <strong class="text-success">+${{ (aiPsychologyReport?.financialImpact?.potentialSavings || 0) | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+
+      <!-- Tarjeta 4: Setup Técnico Estrella / Confluencia Top -->
+      <div class="ai-cockpit-card card-strategy">
+        <div class="cockpit-card-header">
+          <span class="cockpit-label">Setup Técnico con Mayor Ventaja</span>
+          <span class="cockpit-tag tag-strategy">Edge Estadístico</span>
+        </div>
+        <div class="strategy-content" *ngIf="topStrategy">
+          <div class="strategy-tag-row">
+            <span class="strategy-chip">#{{ topStrategy.name }}</span>
+            <span class="strategy-pnl text-success">+${{ topStrategy.pnl | number:'1.2-2' }}</span>
+          </div>
+          <p class="strategy-desc">
+            Este patrón representa tu mayor tasa de efectividad. Concéntrate en esperar pacientemente esta confluencia.
+          </p>
+        </div>
+        <div class="strategy-content" *ngIf="!topStrategy">
+          <p class="strategy-desc" style="margin-top: 0.5rem;">
+            {{ aiInsights.bestStrategy }}
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navegación de Pestañas del Auditor -->
+    <div class="ai-tabs-bar">
+      <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'resumen'" (click)="activeAuditorTab = 'resumen'">
+        📑 Diagnóstico Conductual y Desempeño
+      </button>
+      <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'sesgos'" (click)="activeAuditorTab = 'sesgos'">
+        🔬 Sesgos Cognitivos Cuantificados ({{ aiPsychologyReport?.biases?.length || 4 }})
+      </button>
+      <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'protocolos'" (click)="activeAuditorTab = 'protocolos'">
+        🛡️ Protocolos Tácticos de Rendimiento ({{ aiPsychologyReport?.prescriptions?.length || 4 }})
+      </button>
+    </div>
+
+    <!-- Contenido de Pestaña 1: Diagnóstico Conductual y Desempeño -->
+    <div class="ai-tab-content" *ngIf="activeAuditorTab === 'resumen'">
+      <div class="ai-narrative-box" [innerHTML]="aiPsychologyReport?.aiSummary || defaultAiSummary"></div>
+      
+      <!-- 4 Pilares de Evaluación -->
+      <div class="ai-pillars-grid">
+        <div class="pillar-item">
+          <div class="pillar-icon">🧠</div>
+          <div class="pillar-body">
+            <h5>Control Emocional</h5>
+            <p>{{ aiInsights.psychology }}</p>
+          </div>
+        </div>
+        <div class="pillar-item">
+          <div class="pillar-icon">🛡️</div>
+          <div class="pillar-body">
+            <h5>Gestión de Riesgo</h5>
+            <p>{{ aiInsights.risk }}</p>
+          </div>
+        </div>
+        <div class="pillar-item">
+          <div class="pillar-icon">🎯</div>
+          <div class="pillar-body">
+            <h5>Ejecución Técnica</h5>
+            <p>{{ aiInsights.bestStrategy }}</p>
+          </div>
+        </div>
+        <div class="pillar-item">
+          <div class="pillar-icon">⭐</div>
+          <div class="pillar-body">
+            <h5>Regla de Oro Personalizada</h5>
+            <p>{{ aiInsights.actionableAdvice }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido de Pestaña 2: Sesgos Cognitivos Cuantificados -->
+    <div class="ai-tab-content" *ngIf="activeAuditorTab === 'sesgos'">
+      <div class="biases-grid">
+        <div class="bias-card" *ngFor="let bias of (aiPsychologyReport?.biases || defaultBiases)">
+          <div class="bias-card-top">
+            <span class="bias-name">{{ bias.name }}</span>
+            <span class="bias-severity-pill" [class.sev-low]="bias.severity < 30" [class.sev-med]="bias.severity >= 30 && bias.severity < 60" [class.sev-high]="bias.severity >= 60">
+              {{ bias.severity }}% Severidad
+            </span>
+          </div>
+          <div class="bias-progress">
+            <div class="bias-bar-fill" [style.width.%]="bias.severity" [ngClass]="bias.severity < 30 ? 'bg-success' : (bias.severity < 60 ? 'bg-warning' : 'bg-danger')"></div>
+          </div>
+          <div class="bias-cost-row" *ngIf="bias.costUSD > 0">
+            <span>Costo estimado:</span>
+            <strong class="text-danger">-${{ bias.costUSD | number:'1.2-2' }} USD</strong>
+          </div>
+          <p class="bias-tip">
+            💡 <strong>Recomendación Técnica:</strong> {{ bias.tip }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido de Pestaña 3: Protocolos Tácticos -->
+    <div class="ai-tab-content" *ngIf="activeAuditorTab === 'protocolos'">
+      <div class="prescriptions-list">
+        <div class="prescription-card" *ngFor="let p of (aiPsychologyReport?.prescriptions || defaultPrescriptions)">
+          <div class="prescription-content" [innerHTML]="p"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Calendario Heatmap de Rendimiento Mensual -->
+  <app-calendar-heatmap [trades]="filteredTrades"></app-calendar-heatmap>
+
+</div>
+
+<div class="empty-state card" *ngIf="!isLoading && accounts.length === 0" style="margin: 3rem auto; max-width: 620px; padding: 3rem 2rem; text-align: center; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;">
+  <div style="font-size: 3.5rem; margin-bottom: 1.25rem;">💼</div>
+  <h3 style="color: #fff; font-size: 1.35rem; margin-bottom: 0.6rem;">No tienes cuentas de trading configuradas</h3>
+  <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.75rem;">Crea tu primer portafolio en la Bitácora (Forex, Futuros, Cripto o Binarias) para activar tus métricas en tiempo real y la auditoría cognitiva con IA.</p>
+  <a routerLink="/bitacora" class="btn btn-primary" style="padding: 0.75rem 1.75rem; font-size: 0.95rem; font-weight: 600;">+ Crear Portafolio en Bitácora</a>
+</div>

@@ -1,0 +1,40 @@
+.profile-header {
+  margin-bottom: 2rem;
+}
+
+.profile-header h2 {
+  margin: 0 0 0.5rem 0;
+}
+
+.profile-header p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.form-card {
+  border-top: 4px solid var(--accent-primary);
+}
+
+.form-card h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+input[disabled] {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: rgba(0,0,0,0.2);
+}

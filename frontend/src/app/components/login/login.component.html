@@ -1,0 +1,48 @@
+<div class="auth-container">
+  <div class="card auth-card">
+    <div class="auth-header">
+      <h2>Bienvenido de Nuevo</h2>
+      <p>Ingresa tus credenciales para acceder a tu portafolio.</p>
+    </div>
+
+    <div *ngIf="errorMessage" class="error-alert">
+      {{ errorMessage }}
+    </div>
+
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <div class="form-group">
+        <label for="username">Usuario</label>
+        <input 
+          type="text" 
+          id="username" 
+          name="username" 
+          class="form-control" 
+          [(ngModel)]="credentials.username" 
+          required
+          autocomplete="username"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          class="form-control" 
+          [(ngModel)]="credentials.password" 
+          required
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100" [disabled]="!loginForm.form.valid || isLoading">
+        {{ isLoading ? 'Ingresando...' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p>¿No tienes una cuenta? <a routerLink="/register">Regístrate aquí</a></p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,23 @@
+<div class="auth-container">
+  <div class="card auth-card" style="text-align: center; padding: 3rem 2rem;">
+    <div *ngIf="status === 'loading'">
+      <div class="spinner" style="border: 4px solid rgba(99, 102, 241, 0.2); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+      <h2>Verificando...</h2>
+      <p style="color: var(--text-secondary);">{{ message }}</p>
+    </div>
+
+    <div *ngIf="status === 'success'">
+      <div style="font-size: 3rem; color: #10b981; margin-bottom: 1rem;">✓</div>
+      <h2>¡Cuenta Verificada!</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ message }}</p>
+      <a routerLink="/login" class="btn btn-primary w-100">Ir a Iniciar Sesión</a>
+    </div>
+
+    <div *ngIf="status === 'error'">
+      <div style="font-size: 3rem; color: #ef4444; margin-bottom: 1rem;">✗</div>
+      <h2>Error de Verificación</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ message }}</p>
+      <a routerLink="/register" class="btn btn-primary w-100">Volver al Registro</a>
+    </div>
+  </div>
+</div>

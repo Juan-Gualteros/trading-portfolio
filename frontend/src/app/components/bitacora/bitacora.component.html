@@ -1,0 +1,733 @@
+<div class="bitacora-container">
+  
+  <!-- Account Selector Area -->
+  <div class="card" style="margin-bottom: 2rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.8);">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <h3 style="margin: 0; color: var(--text-primary);">💼 Cuenta Activa:</h3>
+      <select class="form-control" style="width: auto; min-width: 250px; display: inline-block;" *ngIf="accounts.length > 0" (change)="onAccountChange($event)" [value]="selectedAccountId">
+        <option *ngFor="let account of accounts" [value]="account.id_account">
+          {{ account.name }} ({{ account.market_type }})
+        </option>
+      </select>
+      <div *ngIf="isLoading && accounts.length === 0" style="color: var(--text-secondary);">Cargando cuentas...</div>
+      <div *ngIf="!isLoading && accounts.length === 0" style="color: #94a3b8; font-style: italic;">Sin cuentas registradas</div>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <button class="btn btn-secondary" *ngIf="selectedAccount" (click)="openAccountForm(true)">✎ Editar Saldo</button>
+      <button class="btn btn-primary" (click)="openAccountForm(false)">+ Nueva Cuenta</button>
+    </div>
+  </div>
+
+  <!-- Account Form Modal -->
+  <div class="modal-backdrop" *ngIf="showAccountForm">
+    <div class="card form-card" style="max-width: 500px; margin: 15vh auto; position: relative; z-index: 10000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="margin: 0;">{{ isEditingAccount ? 'Editar Cuenta' : 'Crear Nueva Cuenta' }}</h3>
+        <button class="btn-icon" (click)="showAccountForm = false" style="font-size: 1.5rem; color: var(--text-secondary);">&times;</button>
+      </div>
+      
+      <form (ngSubmit)="saveAccount()" #accForm="ngForm">
+        <div class="form-group">
+          <label>Nombre del Portafolio</label>
+          <input type="text" class="form-control" name="name" [(ngModel)]="accountForm.name" required>
+        </div>
+        <div class="form-group">
+          <label>Mercado Principal</label>
+          <select class="form-control" name="market_type" [(ngModel)]="accountForm.market_type" required>
+            <option value="General">General (Multimercado)</option>
+            <option *ngFor="let market of marketTypes" [value]="market">{{ market }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Saldo / Balance de la Cuenta ($)</label>
+          <input type="number" step="0.01" class="form-control" name="balance" [(ngModel)]="accountForm.balance" required>
+        </div>
+        
+        <div class="form-actions" style="margin-top: 2rem;">
+          <button type="button" class="btn btn-cancel" (click)="showAccountForm = false">Cancelar</button>
+          <button type="submit" class="btn btn-primary" [disabled]="!accForm.form.valid">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Estado vacío cuando no existen cuentas -->
+  <div class="empty-state card" *ngIf="!isLoading && accounts.length === 0" style="margin: 2rem 0; padding: 3.5rem 2rem; text-align: center; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;">
+    <div style="font-size: 3.5rem; margin-bottom: 1.25rem;">💼</div>
+    <h3 style="color: #fff; font-size: 1.35rem; margin-bottom: 0.6rem;">Aún no tienes portafolios creados</h3>
+    <p style="color: var(--text-secondary); line-height: 1.6; max-width: 520px; margin: 0 auto 1.75rem;">
+      Para registrar tus operaciones y activar la bitácora inteligente, crea tu primera cuenta de trading (ej. Forex, Futuros, Binarias o Cripto).
+    </p>
+    <button class="btn btn-primary" (click)="openAccountForm(false)" style="padding: 0.75rem 1.75rem; font-size: 0.95rem; font-weight: 600;">
+      + Crear Mi Primera Cuenta
+    </button>
+  </div>
+
+  <div class="bitacora-header" *ngIf="selectedAccountId">
+    <div class="header-titles">
+      <h2>Mi Bitácora de Trading</h2>
+      <p>Registra y analiza tus operaciones en el mercado.</p>
+    </div>
+    <div class="header-action-toolbar">
+      <button class="btn btn-primary btn-add-trade" (click)="openAddForm()">
+        + Nueva Operación
+      </button>
+      <button class="btn btn-ai-purple" (click)="analyzeEmotions()" [disabled]="isAnalyzingPsychology">
+        <span *ngIf="!isAnalyzingPsychology">🧠 Diagnóstico Psicológico y Conductual</span>
+        <span *ngIf="isAnalyzingPsychology">⚡ Analizando Desempeño...</span>
+      </button>
+      <button class="btn btn-secondary btn-toolbar-icon" (click)="exportToCSV()" title="Descargar como archivo CSV">
+        📥 CSV
+      </button>
+      <button class="btn btn-secondary btn-toolbar-icon" (click)="printReport()" title="Imprimir o exportar a PDF">
+        🖨️ PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Dashboard Stats -->
+  <div class="dashboard-stats" style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+    <div class="card stat-card" style="flex: 1; padding: 1.5rem; text-align: center; border-left: 4px solid var(--accent-primary);">
+      <h4 style="margin: 0; color: var(--text-secondary); font-weight: 500;">Balance de Cuenta</h4>
+      <h2 style="margin: 0.5rem 0 0 0; font-size: 2rem;" [class.text-success]="currentBalance > accountBalance" [class.text-danger]="currentBalance < accountBalance">
+        ${{ currentBalance | number:'1.2-2' }}
+      </h2>
+    </div>
+    <div class="card stat-card" style="flex: 1; padding: 1.5rem; text-align: center; border-left: 4px solid var(--accent-primary);">
+      <h4 style="margin: 0; color: var(--text-secondary); font-weight: 500;">PnL Total (Beneficio Neto)</h4>
+      <h2 style="margin: 0.5rem 0 0 0; font-size: 2rem;" [class.text-success]="totalPnL > 0" [class.text-danger]="totalPnL < 0">
+        {{ totalPnL > 0 ? '+' : '' }}${{ totalPnL | number:'1.2-2' }}
+      </h2>
+    </div>
+  </div>
+
+<!-- Filtros de Mercado -->
+<div class="market-filters" *ngIf="availableMarkets.length > 1">
+  <button 
+    class="filter-tab" 
+    [class.active]="currentFilter === 'Todos'" 
+    (click)="applyFilter('Todos')">
+    Todos
+  </button>
+  <button 
+    class="filter-tab" 
+    *ngFor="let market of availableMarkets"
+    [class.active]="currentFilter === market" 
+    (click)="applyFilter(market)">
+    {{ market }}
+  </button>
+</div>
+
+<!-- Modal Diagnóstico Psicológico y Conductual -->
+<div class="modal-backdrop" *ngIf="showEmotionAnalysis">
+  <div class="card form-card" style="max-width: 800px; width: 95%; max-height: 90vh; overflow-y: auto; margin: 5vh auto; position: relative; z-index: 10000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid rgba(168, 85, 247, 0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <div>
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+          🧠 Diagnóstico Psicológico y Conductual
+          <span style="font-size: 0.75rem; background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7; padding: 2px 8px; border-radius: 12px; font-weight: normal;">
+            Perfil Conductual
+          </span>
+        </h3>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+          Auditoría de conducta, sesgos cognitivos y disciplina operativa de la cuenta.
+        </p>
+      </div>
+      <button class="btn-icon" (click)="showEmotionAnalysis = false" style="font-size: 1.5rem; color: var(--text-secondary);">&times;</button>
+    </div>
+
+    <!-- 1. Arquetipo Psicológico del Trader -->
+    <div *ngIf="aiPsychologyReport?.archetype" style="margin-bottom: 1.5rem; padding: 1.25rem; border-radius: 10px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(88, 28, 135, 0.3)); border: 1px solid rgba(168, 85, 247, 0.4); display: flex; gap: 1.25rem; align-items: center;">
+      <div style="font-size: 3rem; line-height: 1; padding: 1rem; background: rgba(168, 85, 247, 0.15); border-radius: 50%; border: 1px solid rgba(168, 85, 247, 0.3);">
+        {{ aiPsychologyReport?.archetype?.emoji }}
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <h3 style="margin: 0; font-size: 1.3rem; color: #fff;">{{ aiPsychologyReport?.archetype?.title }}</h3>
+          <span style="font-size: 0.8rem; background: rgba(99, 102, 241, 0.25); color: #a5b4fc; padding: 2px 8px; border-radius: 4px;">Arquetipo Dominante</span>
+        </div>
+        <div style="color: #c084fc; font-weight: 500; font-size: 0.95rem; margin: 4px 0;">
+          {{ aiPsychologyReport?.archetype?.subtitle }}
+        </div>
+        <p style="margin: 0; font-size: 0.9rem; color: #cbd5e1; line-height: 1.5;">
+          {{ aiPsychologyReport?.archetype?.description }}
+        </p>
+      </div>
+    </div>
+
+    <!-- 2. Tarjetas de Métricas de Conducta -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+      <!-- Disciplina -->
+      <div class="card" style="padding: 1rem; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); text-align: center;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Índice de Disciplina Mental</span>
+        <h2 style="margin: 0.25rem 0; font-size: 2rem;" [class.text-success]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50">
+          {{ aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100 }} / 100
+        </h2>
+        <div style="background: rgba(255, 255, 255, 0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 6px;">
+          <div [style.width.%]="aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100" style="height: 100%; transition: width 0.5s;" [style.background]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? '#22c55e' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? '#eab308' : '#ef4444')"></div>
+        </div>
+      </div>
+
+      <!-- Costo Emocional en USD -->
+      <div class="card" style="padding: 1rem; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); text-align: center;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Costo por Indisciplina (Pérdidas Evitables)</span>
+        <h2 style="margin: 0.25rem 0; font-size: 2rem; color: #f87171;">
+          -${{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) | number:'1.2-2' }} USD
+        </h2>
+        <small style="color: var(--text-secondary); font-size: 0.8rem;">
+          Pérdidas acumuladas por Revenge Trading o entradas sin SL
+        </small>
+      </div>
+    </div>
+
+    <!-- 3. Sesgos Cognitivos Detectados -->
+    <div style="margin-bottom: 1.5rem;" *ngIf="aiPsychologyReport?.biases && aiPsychologyReport?.biases.length > 0">
+      <h4 style="margin: 0 0 0.75rem 0; color: #fff; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+        🎯 Auditoría de Sesgos Cognitivos del Trader
+      </h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.75rem;">
+        <div *ngFor="let bias of aiPsychologyReport?.biases" style="padding: 0.85rem; border-radius: 8px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="color: #f1f5f9; font-size: 0.9rem;">{{ bias.name }}</strong>
+            <span [style.color]="bias.detected ? '#f87171' : '#4ade80'" style="font-size: 0.78rem; font-weight: bold; padding: 2px 6px; border-radius: 4px;" [style.background]="bias.detected ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)'">
+              {{ bias.detected ? '🔴 Alerta Activa' : '🟢 Bajo Control' }}
+            </span>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.1); height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+            <div [style.width.%]="bias.severity" style="height: 100%; transition: width 0.5s;" [style.background]="bias.severity > 40 ? '#ef4444' : (bias.severity > 20 ? '#eab308' : '#22c55e')"></div>
+          </div>
+          <div style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.4;">
+            💡 <strong>Recomendación Técnica:</strong> {{ bias.tip }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Resumen Narrativo del Diagnóstico Conductual -->
+    <div style="margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-primary); background: rgba(99, 102, 241, 0.1); padding: 1.25rem; border-left: 4px solid #818cf8; border-radius: 6px;" [innerHTML]="emotionConclusion"></div>
+
+    <!-- 5. Prescripción y Protocolos de la IA -->
+    <div style="margin-bottom: 1.5rem;" *ngIf="aiPsychologyReport?.prescriptions && aiPsychologyReport?.prescriptions.length > 0">
+      <h4 style="margin: 0 0 0.75rem 0; color: #fff; font-size: 1rem;">
+        📋 Protocolo y Prescripción Mental Recomendada:
+      </h4>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div *ngFor="let p of aiPsychologyReport?.prescriptions" style="padding: 0.75rem 1rem; border-radius: 6px; background: rgba(168, 85, 247, 0.1); border-left: 3px solid #c084fc; font-size: 0.9rem; color: #e2e8f0;" [innerHTML]="p">
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Desglose Estadístico por Emoción -->
+    <div *ngIf="emotionStats.length > 0" style="margin-top: 1.5rem; overflow-x: auto;">
+      <h4 style="margin: 0 0 0.75rem 0; color: #fff; font-size: 1rem;">📊 Rendimiento Financiero por Emoción</h4>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <th style="padding: 0.75rem; text-align: left;">Emoción</th>
+            <th style="padding: 0.75rem; text-align: center;">Operaciones</th>
+            <th style="padding: 0.75rem; text-align: center;">Win Rate</th>
+            <th style="padding: 0.75rem; text-align: right;">PnL Neto ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let stat of emotionStats" style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 0.75rem;"><span class="emotion-tag">{{ stat.emotion }}</span></td>
+            <td style="padding: 0.75rem; text-align: center;">{{ stat.count }}</td>
+            <td style="padding: 0.75rem; text-align: center;">{{ stat.winRate | number:'1.0-1' }}%</td>
+            <td style="padding: 0.75rem; text-align: right;" [class.text-success]="stat.pnl > 0" [class.text-danger]="stat.pnl < 0">
+              <strong>{{ stat.pnl > 0 ? '+' : '' }}${{ stat.pnl | number:'1.2-2' }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem;">
+      <button class="btn btn-secondary" (click)="printReport()">🖨️ Imprimir Diagnóstico</button>
+      <button class="btn btn-primary" (click)="showEmotionAnalysis = false">Cerrar Diagnóstico</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal / Formulario Inline -->
+<!-- Modal / Formulario Inline -->
+<div class="card form-card" *ngIf="showForm">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+    <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+      <span>{{ isEditing ? '✏️ Editar Operación' : '📝 Registrar Operación' }}</span>
+      <span style="font-size: 0.8rem; font-weight: normal; color: #a5b4fc; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); padding: 2px 8px; border-radius: 4px;">
+        {{ currentTrade.market_type }}
+      </span>
+    </h3>
+    <button type="button" class="btn-icon" (click)="cancelForm()" style="font-size: 1.5rem; color: var(--text-secondary); cursor: pointer;" title="Cerrar formulario">&times;</button>
+  </div>
+
+  <form (ngSubmit)="saveTrade()" #tradeForm="ngForm">
+    <div class="form-grid-4">
+      
+      <!-- FILA 1: Parámetros del Activo (4 Columnas) -->
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Mercado</span>
+        </label>
+        <select class="form-control" name="market_type" [(ngModel)]="currentTrade.market_type" (ngModelChange)="onMarketChange()" required [disabled]="availableMarkets.length === 1">
+          <option *ngFor="let market of availableMarkets" [ngValue]="market">{{ market }}</option>
+        </select>
+      </div>
+
+      <div class="form-group custom-autocomplete">
+        <label class="field-label">
+          <span class="label-title">Activo / Par</span>
+        </label>
+        <input type="text" class="form-control" name="asset" 
+               [(ngModel)]="currentTrade.asset" 
+               (ngModelChange)="onAssetChange()"
+               (focus)="showDropdown = true" 
+               (blur)="hideDropdown()"
+               (keyup.enter)="renderChart(currentTrade.asset)"
+               placeholder="Buscar activo..." autocomplete="off" required>
+               
+        <ul class="autocomplete-dropdown" *ngIf="showDropdown && filteredAssetOptions.length > 0">
+          <li *ngFor="let asset of filteredAssetOptions" (mousedown)="selectAsset(asset)">
+            {{ asset }}
+          </li>
+        </ul>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Tipo de Operación</span>
+        </label>
+        <select class="form-control" name="trade_type" [(ngModel)]="currentTrade.trade_type" (ngModelChange)="onRiskOrPriceChange()" required>
+          <option *ngFor="let type of tradeTypes" [value]="type">{{ type }}</option>
+        </select>
+      </div>
+
+      <!-- Campo de Contexto Operativo (Columna 4) -->
+      <div class="form-group" *ngIf="currentTrade.market_type === 'Binarias'">
+        <label class="field-label">
+          <span class="label-title">Duración</span>
+        </label>
+        <select class="form-control" name="duration" [(ngModel)]="currentTrade.duration" required>
+          <option [ngValue]="null" disabled>Selecciona duración...</option>
+          <option *ngFor="let dur of durations" [value]="dur">{{ dur }}</option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="currentTrade.market_type === 'Acciones'">
+        <label class="field-label">
+          <span class="label-title">Tipo de Instrumento</span>
+        </label>
+        <select class="form-control" name="instrument_type" [(ngModel)]="currentTrade.instrument_type" required>
+          <option [ngValue]="null" disabled>Selecciona instrumento...</option>
+          <option *ngFor="let instr of instrumentTypes" [value]="instr">{{ instr }}</option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias' && currentTrade.market_type !== 'Acciones'">
+        <label class="field-label">
+          <span class="label-title">Estilo de Trading</span>
+        </label>
+        <select class="form-control" name="trading_style" [(ngModel)]="currentTrade.trading_style" required>
+          <option [ngValue]="null" disabled>Selecciona estilo...</option>
+          <option *ngFor="let style of tradingStyles" [value]="style">{{ style }}</option>
+        </select>
+      </div>
+
+      <!-- FILA 2: Precios y Niveles Técnicos (4 Columnas) -->
+      <!-- Entrada -->
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Precio Entrada</span>
+          <button type="button" class="btn-label-action" (click)="fetchCurrentPrice(currentTrade.asset, currentTrade.market_type)" title="Actualizar precio en vivo">
+            ⚡ Auto-Precio
+          </button>
+        </label>
+        <input type="number" step="0.00000001" class="form-control" name="entry_price" [(ngModel)]="currentTrade.entry_price" (ngModelChange)="onRiskOrPriceChange()" placeholder="0.00" required>
+      </div>
+
+      <!-- Stop Loss (SL) - Oculto en Binarias -->
+      <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias'">
+        <label class="field-label">
+          <span class="label-title">Stop Loss (SL)</span>
+        </label>
+        <input type="number" step="0.00000001" class="form-control" name="stop_loss" [(ngModel)]="currentTrade.stop_loss" (ngModelChange)="onRiskOrPriceChange()" placeholder="0.00">
+      </div>
+
+      <!-- Take Profit (TP) - Oculto en Binarias -->
+      <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias'">
+        <label class="field-label">
+          <span class="label-title">Take Profit (TP)</span>
+        </label>
+        <input type="number" step="0.00000001" class="form-control" name="take_profit" [(ngModel)]="currentTrade.take_profit" placeholder="0.00">
+      </div>
+
+      <!-- Precio Salida (Opcional) -->
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Precio Salida (Opcional)</span>
+        </label>
+        <input type="number" step="0.00000001" class="form-control" name="exit_price" [(ngModel)]="currentTrade.exit_price" (ngModelChange)="autoCalculatePnL()" placeholder="0.00">
+      </div>
+
+      <!-- CAMPOS EXCLUSIVOS PARA BINARIAS (Completando las 4 columnas de la Fila 2) -->
+      <div class="form-group" *ngIf="currentTrade.market_type === 'Binarias'">
+        <label class="field-label">
+          <span class="label-title">% Retorno (Payout)</span>
+        </label>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input type="number" step="1" min="1" max="100" class="form-control" name="payout_percentage" [(ngModel)]="currentTrade.payout_percentage" (ngModelChange)="autoCalculatePnL()" placeholder="85" style="width: 85px;" required>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setPayout(80)" [style.background]="currentTrade.payout_percentage === 80 ? 'rgba(59, 130, 246, 0.3)' : 'transparent'" style="padding: 2px 6px; font-size: 0.75rem; border: 1px solid var(--border-color); color: #cbd5e1; border-radius: 4px;">80%</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setPayout(85)" [style.background]="currentTrade.payout_percentage === 85 ? 'rgba(59, 130, 246, 0.3)' : 'transparent'" style="padding: 2px 6px; font-size: 0.75rem; border: 1px solid var(--border-color); color: #cbd5e1; border-radius: 4px;">85%</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setPayout(90)" [style.background]="currentTrade.payout_percentage === 90 ? 'rgba(59, 130, 246, 0.3)' : 'transparent'" style="padding: 2px 6px; font-size: 0.75rem; border: 1px solid var(--border-color); color: #cbd5e1; border-radius: 4px;">90%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" *ngIf="currentTrade.market_type === 'Binarias'">
+        <label class="field-label">
+          <span class="label-title">Retorno Potencial</span>
+        </label>
+        <div class="form-control" style="background: rgba(15, 23, 42, 0.4); display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; border-color: rgba(59, 130, 246, 0.3); height: calc(1.5em + 0.75rem + 2px);">
+          <span>Gana: <strong class="text-success">+${{ potentialBinaryGain | number:'1.2-2' }}</strong></span>
+          <span style="color: #64748b;">|</span>
+          <span>Pierde: <strong class="text-danger">-${{ (currentTrade.volume || 1) | number:'1.2-2' }}</strong></span>
+        </div>
+      </div>
+
+      <!-- FILA 3: Ejecución, Resultado y Estado (4 Columnas) -->
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title" *ngIf="currentTrade.market_type === 'Binarias'">Importe Invertido ($ USD)</span>
+          <span class="label-title" *ngIf="currentTrade.market_type === 'Futuros'">Contratos</span>
+          <span class="label-title" *ngIf="currentTrade.market_type !== 'Binarias' && currentTrade.market_type !== 'Futuros'">Volumen / Lotaje</span>
+        </label>
+        <input type="number" step="0.01" min="0.01" class="form-control" name="volume" [(ngModel)]="currentTrade.volume" (ngModelChange)="onVolumeChange()" [placeholder]="currentTrade.market_type === 'Binarias' ? '1.00' : '0.01'" required>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Resultado (PnL USD $)</span>
+          <span *ngIf="currentTrade.pnl !== null" class="label-badge" [class.text-success]="currentTrade.pnl > 0" [class.text-danger]="currentTrade.pnl < 0" [style.background]="currentTrade.pnl > 0 ? 'rgba(34, 197, 94, 0.15)' : (currentTrade.pnl < 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.1)')">
+            {{ currentTrade.pnl > 0 ? '🟢 Ganancia' : (currentTrade.pnl < 0 ? '🔴 Pérdida' : '⚪ Empate') }}
+          </span>
+        </label>
+        <input type="number" step="0.01" class="form-control" name="pnl" [(ngModel)]="currentTrade.pnl" placeholder="0.00 (Calculado auto)">
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Estado Operación</span>
+        </label>
+        <select class="form-control" name="status" [(ngModel)]="currentTrade.status" (ngModelChange)="onStatusChange()" required>
+          <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">
+          <span class="label-title">Estado Emocional</span>
+          <button type="button" class="btn-label-ai" (click)="detectCurrentEmotion()" [disabled]="isDetectingEmotion" title="Auto-detectar estado mental basado en el contexto y notas del trade">
+            ✨ <span *ngIf="!isDetectingEmotion">Auto-Detectar</span><span *ngIf="isDetectingEmotion">...</span>
+          </button>
+        </label>
+        <select class="form-control" name="emotion_state" [(ngModel)]="currentTrade.emotion_state" required>
+          <option *ngFor="let emotion of emotions" [value]="emotion">{{ emotion }}</option>
+        </select>
+      </div>
+
+      <!-- Banner de Feedback de IA a Ancho Completo -->
+      <div class="ai-feedback-banner" *ngIf="detectedEmotionFeedback">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.1rem;">✨</span>
+          <span>{{ detectedEmotionFeedback }}</span>
+        </div>
+        <button type="button" class="ai-feedback-close" (click)="detectedEmotionFeedback = null">&times;</button>
+      </div>
+
+    </div>
+
+    <!-- Calculadora de Riesgo & Semáforo de Gestión de Capital (Unificado para todos los mercados) -->
+    <div class="risk-card" [ngClass]="'risk-' + riskLevel" style="margin-top: 1.5rem; padding: 1.25rem; border-radius: 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+        <span style="font-weight: 600; font-size: 0.95rem; color: #fff;">
+          {{ currentTrade.market_type === 'Binarias' ? '⚡ Gestión de Riesgo e Inversión (Opciones Binarias)' : '🛡️ Gestión de Riesgo y Calculadora de Posición' }}
+        </span>
+        <span class="risk-badge" [ngClass]="'badge-risk-' + riskLevel" style="font-weight: 700; font-size: 0.8rem; padding: 3px 10px; border-radius: 20px;">
+          <span *ngIf="riskLevel === 'low'">🟢 Riesgo Conservador (&le; 1.5%)</span>
+          <span *ngIf="riskLevel === 'moderate'">🟡 Riesgo Moderado (1.5% - 2.5%)</span>
+          <span *ngIf="riskLevel === 'high'">🔴 ALERTA: Riesgo Excesivo (> 2.5%)</span>
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Ajuste rápido de % de Riesgo:</span>
+        <button type="button" class="btn-risk" [class.active]="currentTrade.risk_percentage === 0.5" (click)="setRisk(0.5)">0.5%</button>
+        <button type="button" class="btn-risk" [class.active]="currentTrade.risk_percentage === 1.0" (click)="setRisk(1.0)">1.0%</button>
+        <button type="button" class="btn-risk" [class.active]="currentTrade.risk_percentage === 1.5" (click)="setRisk(1.5)">1.5%</button>
+        <button type="button" class="btn-risk" [class.active]="currentTrade.risk_percentage === 2.0" (click)="setRisk(2.0)">2.0%</button>
+        <button type="button" class="btn-risk" [class.active]="currentTrade.risk_percentage === 3.0" (click)="setRisk(3.0)">3.0%</button>
+      </div>
+
+      <!-- Resumen para Opciones Binarias -->
+      <div *ngIf="currentTrade.market_type === 'Binarias'" style="display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.85rem; color: #cbd5e1; background: rgba(15, 23, 42, 0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.2);">
+        <div>Inversión arriesgada: <strong class="text-danger">-${{ (currentTrade.volume || riskAmount) | number:'1.2-2' }} USD</strong> ({{ currentTrade.risk_percentage }}% de la cuenta)</div>
+        <div>Ganancia Neta (ITM): <strong class="text-success">+${{ potentialBinaryGain | number:'1.2-2' }} USD</strong> (+{{ currentTrade.payout_percentage || 85 }}%)</div>
+        <div>Total al Cobrar: <strong style="color: #38bdf8;">${{ ((currentTrade.volume || riskAmount) + potentialBinaryGain) | number:'1.2-2' }} USD</strong></div>
+      </div>
+
+      <!-- Resumen para otros mercados (Forex, Futuros, Cryptos, Acciones) -->
+      <div *ngIf="currentTrade.market_type !== 'Binarias'" style="display: flex; justify-content: space-between; font-size: 0.9rem; flex-wrap: wrap; gap: 1rem; color: #cbd5e1;">
+        <div>Dinero arriesgado: <strong class="text-danger">-${{ riskAmount | number:'1.2-2' }} USD</strong> ({{ currentTrade.risk_percentage }}%)</div>
+        <div *ngIf="currentTrade.volume">
+          <span *ngIf="currentTrade.market_type === 'Futuros'">Contratos calculados: </span>
+          <span *ngIf="currentTrade.market_type !== 'Futuros'">Lotaje recomendado: </span>
+          <strong class="text-success">{{ currentTrade.volume }} {{ currentTrade.market_type === 'Futuros' ? 'ctrs' : 'lotes' }}</strong>
+          <span *ngIf="calculatedForexDetails" style="color: #94a3b8; font-size: 0.8rem; margin-left: 6px;">
+            ({{ calculatedForexDetails.units | number:'1.0-0' }} unidades)
+          </span>
+          <span *ngIf="calculatedFuturesDetails && calculatedFuturesDetails.exactContracts >= 1" style="color: #94a3b8; font-size: 0.8rem; margin-left: 6px;">
+            ({{ calculatedFuturesDetails.exactContracts }} exactos)
+          </span>
+        </div>
+      </div>
+
+      <!-- Detalle Técnico de Pip y Conversión Forex en Vivo -->
+      <div *ngIf="calculatedForexDetails" style="margin-top: 0.6rem; display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: #cbd5e1; background: rgba(15, 23, 42, 0.5); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.2);">
+        <span>📏 Stop Loss: <strong style="color: #f87171;">{{ calculatedForexDetails.pips }} pips</strong></span>
+        <span>💵 Valor Pip Total: <strong style="color: #34d399;">${{ calculatedForexDetails.pipValueUSD }} USD</strong></span>
+        <span *ngIf="calculatedForexDetails.quote !== 'USD'">🌐 Tasa {{ calculatedForexDetails.quote }}/USD: <strong style="color: #38bdf8;">{{ calculatedForexDetails.quoteRate }}</strong></span>
+      </div>
+
+      <!-- Detalle Técnico de Futuros (Puntos, Contratos y Multiplicador CME) -->
+      <div *ngIf="calculatedFuturesDetails" style="margin-top: 0.6rem; display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: #cbd5e1; background: rgba(15, 23, 42, 0.5); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.2);">
+        <span>📏 Stop Loss: <strong style="color: #f87171;">{{ calculatedFuturesDetails.points }} pts</strong></span>
+        <span>💵 Riesgo por Contrato: <strong style="color: #38bdf8;">${{ calculatedFuturesDetails.dollarRiskPerContract }} USD</strong></span>
+        <span>📑 Multiplicador CME: <strong style="color: #e2e8f0;">${{ calculatedFuturesDetails.multiplier }}/pt</strong></span>
+        <span *ngIf="calculatedFuturesDetails.exactContracts < 1" style="color: #f59e0b; width: 100%; margin-top: 2px;">
+          ⚠️ 1 contrato completo excede tu riesgo máximo. Se recomienda operar en micro-contrato (MES / MNQ / MCL / MGC).
+        </span>
+      </div>
+
+      <div *ngIf="getAssetSpecInfo()" style="margin-top: 0.6rem; padding: 0.5rem 0.75rem; background: rgba(56, 189, 248, 0.1); border-left: 3px solid #38bdf8; border-radius: 4px; font-size: 0.82rem; color: #bae6fd;">
+        <span>ℹ️ <strong>{{ currentTrade.market_type === 'Binarias' ? 'Regla de Mercado:' : 'Cálculo en USD:' }}</strong> {{ getAssetSpecInfo() }}</span>
+      </div>
+
+      <div *ngIf="riskLevel === 'high'" style="margin-top: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.15); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.85rem; color: #fca5a5;">
+        ⚠️ <strong>Aviso de Riesgo:</strong> Superar el 2.5% de riesgo en una sola operación incrementa exponencialmente el riesgo de quiebre (Drawdown).
+      </div>
+    </div>
+
+    <!-- Checklist de Confluencias de Entrada -->
+    <div style="margin-top: 1.5rem;">
+      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">
+        🎯 Confluencias / Razones de Entrada (Checklist de Estrategia):
+      </label>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        <button 
+          type="button" 
+          *ngFor="let tag of availableConfluences" 
+          class="chip-btn" 
+          [class.active]="hasConfluence(tag)"
+          (click)="toggleConfluence(tag)">
+          {{ hasConfluence(tag) ? '✓ ' : '+ ' }}{{ tag }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Captura de Pantalla / Evidencia del Gráfico -->
+    <div style="margin-top: 1.5rem;" (paste)="onPasteImage($event)">
+      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">
+        📸 Evidencia del Gráfico (Captura de pantalla):
+      </label>
+      
+      <div *ngIf="!currentTrade.screenshot" style="border: 2px dashed rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 1.5rem; text-align: center; background: rgba(255, 255, 255, 0.02); cursor: pointer;">
+        <input type="file" accept="image/*" id="tradeScreenshotInput" (change)="onFileSelected($event)" style="display: none;">
+        <label for="tradeScreenshotInput" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <span style="font-size: 1.5rem;">🖼️</span>
+          <span style="color: #cbd5e1; font-size: 0.95rem;">Haz clic para subir imagen o presiona <strong>Ctrl + V</strong> para pegar directamente</span>
+          <small style="color: var(--text-secondary);">Formatos soportados: PNG, JPG, WebP</small>
+        </label>
+      </div>
+
+      <div *ngIf="currentTrade.screenshot" style="position: relative; display: inline-block; margin-top: 0.5rem;">
+        <img [src]="currentTrade.screenshot" alt="Captura de análisis" (click)="openScreenshot(currentTrade.screenshot)" style="max-height: 180px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); cursor: zoom-in;" title="Clic para ampliar">
+        <button type="button" (click)="removeScreenshot()" style="display: block; margin-top: 6px; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer;">
+          ✕ Eliminar captura
+        </button>
+      </div>
+    </div>
+
+    <!-- Notas y Reflexión -->
+    <div class="form-group" style="margin-top: 1.5rem;">
+      <label>📝 Notas y Reflexión del Trade</label>
+      <textarea class="form-control" rows="2" name="notes" [(ngModel)]="currentTrade.notes" placeholder="Detalla qué viste en el mercado, lecciones aprendidas o detalles del setup..."></textarea>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-cancel" (click)="cancelForm()">Cancelar</button>
+      <button type="submit" class="btn btn-primary" [disabled]="!tradeForm.form.valid">Guardar Operación</button>
+    </div>
+  </form>
+
+  <div class="tv-chart-wrapper" *ngIf="currentTrade.asset" style="margin-top: 2rem; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #1a1f2e;">
+    <div style="padding: 10px 16px; background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.1rem;">📈</span>
+        <strong style="color: #f1f5f9; font-size: 0.95rem;">Gráfico en Vivo: {{ currentTrade.asset }}</strong>
+        <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;">
+          {{ formatSymbolForTV(currentTrade.asset, currentTrade.market_type) }}
+        </span>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="renderChart(currentTrade.asset)" title="Recargar gráfico" style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer;">
+        🔄 Recargar Gráfico
+      </button>
+    </div>
+    <div id="tradingview_chart" style="width: 100%; height: 400px;"></div>
+  </div>
+</div>
+
+<!-- Tabla de Operaciones -->
+<div class="card table-card">
+  <div *ngIf="isLoading" class="loader">Cargando bitácora...</div>
+  
+  <div class="table-responsive">
+    <table class="trades-table" *ngIf="!isLoading && filteredTrades.length > 0">
+      <thead>
+        <tr>
+          <th class="th-date">Fecha</th>
+          <th class="th-market">Mercado</th>
+          <th class="th-asset">Activo</th>
+          <th class="th-type text-center">Tipo</th>
+          <th class="th-status text-center">Estado</th>
+          <th class="th-volume text-center">Volumen</th>
+          <th class="th-prices text-center">Entrada / Salida</th>
+          <th class="th-pnl text-right">PnL ($)</th>
+          <th class="th-confluences">Confluencias & Emoción</th>
+          <th class="th-evidence text-center">Evidencia</th>
+          <th class="th-actions text-center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let trade of filteredTrades">
+          <!-- Fecha -->
+          <td class="td-date">
+            <div class="cell-date">
+              <span class="date-main">{{ trade.createdAt | date:'dd/MM/yyyy' }}</span>
+              <span class="date-sub">{{ trade.createdAt | date:'hh:mm a' }}</span>
+            </div>
+          </td>
+
+          <!-- Mercado -->
+          <td class="td-market">
+            <div class="cell-market">
+              <span class="market-main">{{ trade.market_type }}</span>
+              <span class="market-sub" *ngIf="trade.duration || trade.trading_style || trade.instrument_type">
+                {{ trade.duration || trade.trading_style || trade.instrument_type }}
+              </span>
+            </div>
+          </td>
+
+          <!-- Activo -->
+          <td class="td-asset">
+            <span class="asset-symbol">{{ trade.asset }}</span>
+          </td>
+
+          <!-- Tipo de Operación -->
+          <td class="td-type text-center">
+            <span class="pill-type" [ngClass]="trade.trade_type === 'LONG' ? 'pill-long' : 'pill-short'">
+              {{ trade.trade_type === 'LONG' ? '▲ LONG' : '▼ SHORT' }}
+            </span>
+          </td>
+
+          <!-- Estado -->
+          <td class="td-status text-center">
+            <span class="pill-status" [ngClass]="{
+              'pill-ganada': trade.status === 'Ganada',
+              'pill-perdida': trade.status === 'Perdida',
+              'pill-abierta': trade.status === 'Abierta',
+              'pill-empate': trade.status === 'Empate'
+            }">
+              {{ trade.status | uppercase }}
+            </span>
+          </td>
+
+          <!-- Volumen / Importe -->
+          <td class="td-volume text-center font-mono">
+            <span *ngIf="trade.market_type === 'Binarias'" style="color: #38bdf8; font-weight: 600;">${{ trade.volume | number:'1.2-2' }}</span>
+            <span *ngIf="trade.market_type === 'Futuros'">{{ trade.volume }} ctrs</span>
+            <span *ngIf="trade.market_type !== 'Binarias' && trade.market_type !== 'Futuros'">{{ trade.volume }} lotes</span>
+          </td>
+
+          <!-- Entrada / Salida -->
+          <td class="td-prices text-center">
+            <div class="cell-prices">
+              <span class="price-val price-entry">{{ trade.entry_price }}</span>
+              <span class="price-arrow" *ngIf="trade.exit_price">→</span>
+              <span class="price-val price-exit" *ngIf="trade.exit_price">{{ trade.exit_price }}</span>
+            </div>
+          </td>
+
+          <!-- PnL en USD -->
+          <td class="td-pnl text-right">
+            <span class="pnl-value" [class.pnl-pos]="trade.pnl > 0" [class.pnl-neg]="trade.pnl < 0" [class.pnl-zero]="!trade.pnl && trade.pnl !== 0">
+              <ng-container *ngIf="trade.pnl !== null">
+                {{ trade.pnl > 0 ? '+' : (trade.pnl < 0 ? '-' : '') }}${{ (trade.pnl < 0 ? -trade.pnl : trade.pnl) | number:'1.2-2' }}
+              </ng-container>
+              <ng-container *ngIf="trade.pnl === null">-</ng-container>
+            </span>
+          </td>
+
+          <!-- Confluencias & Emoción -->
+          <td class="td-confluences">
+            <div class="cell-emotion-confluence">
+              <div class="emotion-row" *ngIf="trade.emotion_state">
+                <span class="emotion-chip" [ngClass]="getEmotionClass(trade.emotion_state)">
+                  {{ trade.emotion_state }}
+                </span>
+              </div>
+              <div class="confluences-wrap" *ngIf="trade.confluences">
+                <span class="confluence-tag" *ngFor="let c of getConfluencesArray(trade.confluences)" [title]="c">
+                  #{{ c }}
+                </span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Evidencia -->
+          <td class="td-evidence text-center">
+            <div *ngIf="trade.screenshot">
+              <img [src]="trade.screenshot" alt="Evidencia" (click)="openScreenshot(trade.screenshot)" class="evidence-thumb" title="Ver captura del gráfico">
+            </div>
+            <span *ngIf="!trade.screenshot" class="text-muted">—</span>
+          </td>
+
+          <!-- Acciones -->
+          <td class="td-actions text-center">
+            <div class="actions-wrapper">
+              <button type="button" class="btn-action-round edit-btn" (click)="openEditForm(trade)" title="Editar Operación">
+                ✎
+              </button>
+              <button type="button" class="btn-action-round delete-btn" (click)="deleteTrade(trade.id_trade)" title="Eliminar Operación">
+                🗑
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!isLoading && filteredTrades.length === 0" class="empty-state">
+    <p>No hay operaciones registradas en esta cuenta bajo este mercado.</p>
+  </div>
+</div>
+
+<!-- Lightbox Modal para ampliar captura de pantalla -->
+<div class="lightbox-backdrop" *ngIf="activeScreenshotModal" (click)="activeScreenshotModal = null">
+  <div class="lightbox-content" (click)="$event.stopPropagation()">
+    <button class="lightbox-close" (click)="activeScreenshotModal = null">×</button>
+    <img [src]="activeScreenshotModal" alt="Screenshot del Gráfico" class="lightbox-image">
+  </div>
+</div>

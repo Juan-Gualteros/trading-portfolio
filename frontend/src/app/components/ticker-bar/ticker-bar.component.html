@@ -1,0 +1,25 @@
+<div class="ticker-wrapper">
+  <div class="ticker-live-badge">
+    <span class="pulsing-dot"></span>
+    <span class="badge-text">MERCADOS EN VIVO</span>
+  </div>
+  <div class="ticker-content" (mouseenter)="isPaused = true" (mouseleave)="isPaused = false">
+    <div class="ticker-track" [class.paused]="isPaused">
+      <div class="ticker-item" *ngFor="let item of tickerList">
+        <span class="ticker-symbol">{{ item.symbol }}</span>
+        <span class="ticker-price">${{ item.price | number:'1.2-4' }}</span>
+        <span class="ticker-change" [ngClass]="item.change >= 0 ? 'positive' : 'negative'">
+          {{ item.change >= 0 ? '▲ +' : '▼ ' }}{{ item.change }}%
+        </span>
+      </div>
+      <!-- Repetición para ciclo infinito suave -->
+      <div class="ticker-item" *ngFor="let item of tickerList">
+        <span class="ticker-symbol">{{ item.symbol }}</span>
+        <span class="ticker-price">${{ item.price | number:'1.2-4' }}</span>
+        <span class="ticker-change" [ngClass]="item.change >= 0 ? 'positive' : 'negative'">
+          {{ item.change >= 0 ? '▲ +' : '▼ ' }}{{ item.change }}%
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
