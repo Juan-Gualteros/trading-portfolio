@@ -5,6 +5,9 @@ import { RouterLink } from '@angular/router';
 import { TradeService } from '../../services/trade.service';
 import { AccountService } from '../../services/account.service';
 import { ToastService } from '../../services/toast.service';
+import { TradingStoreService } from '../../services/trading-store.service';
+import { ReportExportService } from '../../services/report-export.service';
+import { SettingsService } from '../../services/settings.service';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartType, ChartData, ChartEvent } from 'chart.js';
 import { CalendarHeatmapComponent } from '../calendar-heatmap/calendar-heatmap.component';
@@ -20,6 +23,12 @@ export class DashboardComponent implements OnInit {
   accounts: any[] = [];
   selectedAccountId: number | null = null;
   selectedAccount: any = null;
+
+  showAccountForm = false;
+  isEditingAccount = false;
+  accountForm: any = { name: '', market_type: 'General', balance: 10000 };
+  marketTypes: string[] = ['General', 'Forex', 'Cryptos', 'Futuros', 'Acciones', 'Binarias'];
+  isPrivacyMode = false;
 
   allTrades: any[] = [];
   filteredTrades: any[] = [];
@@ -108,6 +117,37 @@ export class DashboardComponent implements OnInit {
     }
   };
 
+  // --- MOTOR CUANTITATIVO Y SIMULACIÓN MONTE CARLO ---
+  quantitativeAnalysis: any = null;
+  isLoadingQuantitative: boolean = false;
+  activeQuantitativeTab: 'expectancy' | 'emociones' | 'sesiones' | 'montecarlo' = 'expectancy';
+
+  public monteCarloChartData: ChartConfiguration['data'] = { datasets: [], labels: [] };
+  public monteCarloChartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { color: '#cbd5e1', boxWidth: 12 } }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+    }
+  };
+
+  public rDistributionChartData: ChartData<'bar'> = { datasets: [], labels: [] };
+  public rDistributionChartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+    }
+  };
+
   aiInsights = {
     psychology: '',
     risk: '',
@@ -166,11 +206,70 @@ export class DashboardComponent implements OnInit {
   constructor(
     private tradeService: TradeService,
     private accountService: AccountService,
-    public toastService: ToastService
+    public toastService: ToastService,
+    public store: TradingStoreService,
+    private reportExportService: ReportExportService,
+    private settingsService: SettingsService
   ) {}
 
   ngOnInit(): void {
+    this.settingsService.settings$.subscribe(s => {
+      this.isPrivacyMode = s.privacyMode;
+      this.updateChartTheme(s.theme);
+    });
     this.loadAccounts();
+  }
+
+  updateChartTheme(theme: string): void {
+    const isLight = theme === 'Claro';
+    const tickColor = isLight ? '#475569' : '#94a3b8';
+    const gridColor = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
+    const radarAngle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)';
+    const radarGrid = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+
+    if (this.lineChartOptions?.scales) {
+      if (this.lineChartOptions.scales.x) {
+        this.lineChartOptions.scales.x.ticks = { ...this.lineChartOptions.scales.x.ticks, color: tickColor };
+        this.lineChartOptions.scales.x.grid = { ...this.lineChartOptions.scales.x.grid, color: gridColor };
+      }
+      if (this.lineChartOptions.scales.y) {
+        this.lineChartOptions.scales.y.ticks = { ...this.lineChartOptions.scales.y.ticks, color: tickColor };
+        this.lineChartOptions.scales.y.grid = { ...this.lineChartOptions.scales.y.grid, color: gridColor };
+      }
+    }
+    if (this.emotionChartOptions?.scales) {
+      if (this.emotionChartOptions.scales.x) {
+        this.emotionChartOptions.scales.x.ticks = { ...this.emotionChartOptions.scales.x.ticks, color: tickColor };
+      }
+      if (this.emotionChartOptions.scales.y) {
+        this.emotionChartOptions.scales.y.ticks = { ...this.emotionChartOptions.scales.y.ticks, color: tickColor };
+        this.emotionChartOptions.scales.y.grid = { ...this.emotionChartOptions.scales.y.grid, color: gridColor };
+      }
+    }
+    if (this.radarChartOptions?.scales?.r) {
+      this.radarChartOptions.scales.r.angleLines = { color: radarAngle };
+      this.radarChartOptions.scales.r.grid = { color: radarGrid };
+      this.radarChartOptions.scales.r.pointLabels = { ...this.radarChartOptions.scales.r.pointLabels, color: tickColor };
+    }
+    if (this.monteCarloChartOptions?.scales) {
+      if (this.monteCarloChartOptions.scales.x) {
+        this.monteCarloChartOptions.scales.x.ticks = { ...this.monteCarloChartOptions.scales.x.ticks, color: tickColor };
+        this.monteCarloChartOptions.scales.x.grid = { ...this.monteCarloChartOptions.scales.x.grid, color: gridColor };
+      }
+      if (this.monteCarloChartOptions.scales.y) {
+        this.monteCarloChartOptions.scales.y.ticks = { ...this.monteCarloChartOptions.scales.y.ticks, color: tickColor };
+        this.monteCarloChartOptions.scales.y.grid = { ...this.monteCarloChartOptions.scales.y.grid, color: gridColor };
+      }
+    }
+    if (this.rDistributionChartOptions?.scales) {
+      if (this.rDistributionChartOptions.scales.x) {
+        this.rDistributionChartOptions.scales.x.ticks = { ...this.rDistributionChartOptions.scales.x.ticks, color: tickColor };
+      }
+      if (this.rDistributionChartOptions.scales.y) {
+        this.rDistributionChartOptions.scales.y.ticks = { ...this.rDistributionChartOptions.scales.y.ticks, color: tickColor };
+        this.rDistributionChartOptions.scales.y.grid = { ...this.rDistributionChartOptions.scales.y.grid, color: gridColor };
+      }
+    }
   }
 
   loadAccounts(): void {
@@ -179,8 +278,15 @@ export class DashboardComponent implements OnInit {
       next: (data) => {
         this.accounts = data || [];
         if (this.accounts.length > 0) {
-          this.selectedAccountId = this.accounts[0].id_account;
-          this.selectedAccount = this.accounts[0];
+          let match = null;
+          if (this.selectedAccountId) {
+            match = this.accounts.find(a => a.id_account === this.selectedAccountId);
+          }
+          if (!match) {
+            match = this.accounts.find(a => a.is_default) || this.accounts[0];
+          }
+          this.selectedAccount = match;
+          this.selectedAccountId = this.selectedAccount.id_account;
           this.loadTrades();
         } else {
           this.selectedAccountId = null;
@@ -195,6 +301,75 @@ export class DashboardComponent implements OnInit {
       error: (err) => {
         console.error('Error fetching accounts:', err);
         this.isLoading = false;
+      }
+    });
+  }
+
+  openAccountForm(edit: boolean = true): void {
+    this.isEditingAccount = edit;
+    if (edit && this.selectedAccount) {
+      this.accountForm = { 
+        name: this.selectedAccount.name || '',
+        market_type: this.selectedAccount.market_type || 'General',
+        balance: this.selectedAccount.balance !== undefined ? this.selectedAccount.balance : 10000,
+        is_default: !!this.selectedAccount.is_default
+      };
+    } else {
+      this.accountForm = { 
+        name: '', 
+        market_type: 'General', 
+        balance: 10000,
+        is_default: this.accounts.length === 0
+      };
+    }
+    this.showAccountForm = true;
+  }
+
+  saveAccount(): void {
+    if (this.isEditingAccount && this.selectedAccount) {
+      this.accountService.updateAccount(this.selectedAccount.id_account, this.accountForm).subscribe({
+        next: (updated) => {
+          this.showAccountForm = false;
+          this.toastService.success('Cuenta y configuración actualizadas correctamente.');
+          if (updated && updated.id_account) {
+            this.selectedAccountId = updated.id_account;
+          }
+          this.loadAccounts();
+        },
+        error: (err) => {
+          console.error(err);
+          this.toastService.error('Error al actualizar la cuenta.');
+        }
+      });
+    } else {
+      this.accountService.addAccount(this.accountForm).subscribe({
+        next: (newAccount) => {
+          this.showAccountForm = false;
+          this.selectedAccountId = newAccount.id_account;
+          this.toastService.success('Cuenta creada exitosamente.');
+          this.loadAccounts();
+        },
+        error: (err) => {
+          console.error(err);
+          this.toastService.error('Error al crear la cuenta.');
+        }
+      });
+    }
+  }
+
+  setAsDefaultAccount(account: any, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!account || account.is_default) return;
+
+    this.accountService.setDefaultAccount(account.id_account).subscribe({
+      next: () => {
+        this.toastService.success(`"${account.name}" establecida como cuenta principal.`);
+        this.selectedAccountId = account.id_account;
+        this.loadAccounts();
+      },
+      error: (err) => {
+        console.error(err);
+        this.toastService.error('Error al establecer cuenta principal.');
       }
     });
   }
@@ -223,6 +398,7 @@ export class DashboardComponent implements OnInit {
         this.extractFilters();
         this.applyFilters();
         this.loadAiPsychologyReport();
+        this.loadQuantitativeAnalysis();
         this.isLoading = false;
       },
       error: (err) => {
@@ -232,42 +408,188 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  loadQuantitativeAnalysis(): void {
+    if (!this.selectedAccountId) return;
+    this.isLoadingQuantitative = true;
+    this.tradeService.getQuantitativeAnalysis(this.selectedAccountId).subscribe({
+      next: (data) => {
+        this.quantitativeAnalysis = data;
+        this.isLoadingQuantitative = false;
+        this.updateMonteCarloChart();
+        this.updateRDistributionChart();
+      },
+      error: (err) => {
+        console.error('Error fetching quantitative analysis:', err);
+        this.isLoadingQuantitative = false;
+      }
+    });
+  }
+
+  updateMonteCarloChart(): void {
+    const mc = this.quantitativeAnalysis?.monteCarlo;
+    if (!mc || !mc.projectedEquityCurves) return;
+
+    const labels = mc.projectedEquityCurves.map((c: any) => `T${c.tradeIndex}`);
+    const p95Data = mc.projectedEquityCurves.map((c: any) => c.p95);
+    const p50Data = mc.projectedEquityCurves.map((c: any) => c.p50);
+    const p5Data = mc.projectedEquityCurves.map((c: any) => c.p5);
+
+    const datasets: any[] = [
+      {
+        data: p95Data,
+        label: 'Percentil 95 (Optimista)',
+        borderColor: '#10b981',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3
+      },
+      {
+        data: p50Data,
+        label: 'Mediana 50 (Esperado)',
+        borderColor: '#38bdf8',
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        pointRadius: 0,
+        tension: 0.3
+      },
+      {
+        data: p5Data,
+        label: 'Percentil 5 (Pesimista)',
+        borderColor: '#ef4444',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3
+      }
+    ];
+
+    if (mc.sampleTrajectories && mc.sampleTrajectories.length > 0) {
+      mc.sampleTrajectories.slice(0, 3).forEach((tr: any, idx: number) => {
+        datasets.push({
+          data: tr.data,
+          label: `Muestra #${idx + 1}`,
+          borderColor: 'rgba(148, 163, 184, 0.25)',
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          tension: 0.2
+        });
+      });
+    }
+
+    this.monteCarloChartData = {
+      labels,
+      datasets
+    };
+  }
+
+  updateRDistributionChart(): void {
+    const dist = this.quantitativeAnalysis?.expectancy?.rDistribution;
+    if (!dist) return;
+
+    const labels = ['< -2R', '[-2R, -1R]', '[-1R, 0R]', '0R (BE)', '(0R, 1R]', '(1R, 2R]', '(2R, 3R]', '> 3R'];
+    const counts = [
+      dist.lt_minus_2R || 0,
+      dist.minus_2R_to_minus_1R || 0,
+      dist.minus_1R_to_0R || 0,
+      dist.breakeven_0R || 0,
+      dist['0R_to_1R'] || 0,
+      dist['1R_to_2R'] || 0,
+      dist['2R_to_3R'] || 0,
+      dist.gt_3R || 0
+    ];
+
+    const bgColors = [
+      '#b91c1c', '#ef4444', '#f87171', '#94a3b8',
+      '#34d399', '#10b981', '#059669', '#047857'
+    ];
+
+    this.rDistributionChartData = {
+      labels,
+      datasets: [{
+        label: 'Frecuencia de Trades',
+        data: counts,
+        backgroundColor: bgColors,
+        borderRadius: 6
+      }]
+    };
+  }
+
+  exportPdfReport(): void {
+    if (!this.selectedAccount) return;
+    this.toastService.info('Generando reporte de auditoría en PDF...');
+    this.reportExportService.exportExecutivePdf({
+      account: this.selectedAccount,
+      metrics: this.metrics,
+      quantitative: this.quantitativeAnalysis,
+      psychology: this.aiPsychologyReport,
+      trades: this.allTrades
+    });
+    this.toastService.success('Reporte de auditoría generado exitosamente.');
+  }
+
+  exportExcelReport(): void {
+    if (!this.selectedAccount) return;
+    this.toastService.info('📊 Generando libro de cálculo estructurado en Excel (.xlsx)...');
+    this.reportExportService.exportStructuredExcel({
+      account: this.selectedAccount,
+      metrics: this.metrics,
+      quantitative: this.quantitativeAnalysis,
+      psychology: this.aiPsychologyReport,
+      trades: this.allTrades
+    });
+    this.toastService.success('✅ Archivo Excel descargado con éxito.');
+  }
+
   loadAiPsychologyReport(showToast: boolean = false): void {
     if (!this.selectedAccountId) return;
     this.isLoadingAiReport = true;
     if (showToast) {
-      this.toastService.info('📊 Sincronizando operaciones y actualizando auditoría...');
+      this.toastService.info('📊 Sincronizando operaciones y re-auditando...');
       this.tradeService.getTrades(this.selectedAccountId).subscribe({
         next: (trades) => {
-          this.allTrades = trades.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          this.allTrades = (trades || []).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           this.extractFilters();
           this.applyFilters();
-          this.fetchAiPsychologyReport(true);
+          this.fetchAiPsychologyReport(true, true);
+          this.loadQuantitativeAnalysis();
         },
         error: (err) => {
           console.error('Error refreshing trades during re-audit:', err);
-          this.fetchAiPsychologyReport(true);
+          this.fetchAiPsychologyReport(true, true);
+          this.loadQuantitativeAnalysis();
         }
       });
     } else {
-      this.fetchAiPsychologyReport(false);
+      this.fetchAiPsychologyReport(false, false);
     }
   }
 
-  fetchAiPsychologyReport(showToast: boolean): void {
+  fetchAiPsychologyReport(showToast: boolean, forceRefresh: boolean = false): void {
     if (!this.selectedAccountId) {
       this.isLoadingAiReport = false;
       return;
     }
-    this.tradeService.getPsychologicalAnalysis(this.selectedAccountId).subscribe({
+    this.tradeService.getPsychologicalAnalysis(this.selectedAccountId, forceRefresh).subscribe({
       next: (data) => {
         this.aiPsychologyReport = data;
+        if (data) {
+          if (data.slAdherencePct !== undefined) {
+            this.slAdherencePct = data.slAdherencePct;
+          }
+          if (data.riskAdherencePct !== undefined) {
+            this.riskAdherencePct = data.riskAdherencePct;
+          }
+        }
+        this.updateRadarChartAndAI();
         this.isLoadingAiReport = false;
         if (showToast) {
-          if (data.isAiPowered) {
-            this.toastService.success(`🤖 Auditoría generada con IA Real (${data.engine}) exitosamente.`);
+          if (data && data.isAiPowered) {
+            this.toastService.success(`🤖 Auditoría generada con IA (${data.engine}) exitosamente.`);
           } else {
-            this.toastService.success(`📊 Auditoría actualizada con ${data.engine || 'Motor Cuantitativo & Conductual'}.`);
+            this.toastService.success(`📊 Auditoría actualizada con ${data?.engine || 'Motor Cuantitativo & Conductual'}.`);
           }
         }
       },
@@ -484,9 +806,12 @@ export class DashboardComponent implements OnInit {
     const totalPnLNum = parseFloat(this.metrics.totalPnL) || 0;
     const winRateNum = parseFloat(this.metrics.winRate) || 0;
     const losingCount = this.filteredTrades.filter(t => parseFloat(t.pnl) < 0).length;
+    const undisciplinedLoss = this.aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0;
 
-    // Psicología
-    if (totalPnLNum > 0 && losingCount <= 1) {
+    // 1. Control Emocional
+    if (totalPnLNum < 0) {
+      this.aiInsights.psychology = `Alerta conductual: La cuenta está en déficit (-$${Math.abs(totalPnLNum).toFixed(2)} USD). A pesar de la serenidad registrada, existe desconexión entre la ejecución y la preservación del capital.`;
+    } else if (totalPnLNum > 0 && losingCount <= 1) {
       this.aiInsights.psychology = 'Excelente serenidad mental: Tu operativa muestra alta convicción técnica y aceptas las pérdidas controladas sin reactividad.';
     } else if (emotionalScore >= 75) {
       this.aiInsights.psychology = 'Excelente autocontrol mental: La gran mayoría de tus operaciones se ejecutan bajo estados de Calma y Confianza.';
@@ -494,14 +819,17 @@ export class DashboardComponent implements OnInit {
       this.aiInsights.psychology = 'Detectamos presencia de impulsividad o revancha. Respeta una pausa obligatoria de 20 minutos tras una pérdida.';
     }
 
-    // Riesgo
-    if (riskScore >= 75) {
+    // 2. Gestión de Riesgo
+    if (totalPnLNum < 0 || undisciplinedLoss > 0) {
+      const fuga = undisciplinedLoss > 0 ? undisciplinedLoss : Math.abs(totalPnLNum);
+      this.aiInsights.risk = `Riesgo crítico: Fuga de capital detectada de -$${fuga.toFixed(2)} USD. Las pérdidas severas evidencian sobreapalancamiento o fallas en el Stop Loss.`;
+    } else if (riskScore >= 75) {
       this.aiInsights.risk = 'Gestión de capital óptima: mantienes el riesgo por trade dentro de los parámetros recomendados (&le; 2%).';
     } else {
       this.aiInsights.risk = 'Alerta de sobreapalancamiento: algunas operaciones arriesgan más de lo debido, lo cual amplifica tu Max Drawdown.';
     }
 
-    // Estrategia confluencias
+    // 3. Estrategia confluencias
     const confPnl: { [key: string]: number } = {};
     this.filteredTrades.forEach(t => {
       if (t.confluences && t.pnl !== null) {
@@ -521,14 +849,16 @@ export class DashboardComponent implements OnInit {
       if (best[1] > 0) {
         this.aiInsights.bestStrategy = `Tu setup técnico más ganador es "#${best[0]}" con un PnL positivo neto de +$${best[1].toFixed(2)}.`;
       } else {
-        this.aiInsights.bestStrategy = 'Tus confluencias actuales requieren revisión y optimización de entradas y salidas.';
+        this.aiInsights.bestStrategy = 'Tus confluencias actuales están en pérdida; requiere revisión urgente del gatillo técnico.';
       }
     } else {
       this.aiInsights.bestStrategy = 'Etiqueta confluencias al registrar operaciones para auditar qué patrón técnico te da mayor ventaja estadística.';
     }
 
-    // Regla de Oro
-    if (totalPnLNum > 0 && winRateNum >= 65) {
+    // 4. Regla de Oro
+    if (totalPnLNum < 0) {
+      this.aiInsights.actionableAdvice = `Regla de Oro: Preservación Urgente de Capital. Con la cuenta en déficit (-$${Math.abs(totalPnLNum).toFixed(2)} USD), reduce de inmediato tu lotaje al mínimo hasta estabilizar la curva y detener el drawdown.`;
+    } else if (totalPnLNum > 0 && winRateNum >= 65) {
       this.aiInsights.actionableAdvice = 'Regla de Oro: Tu ventaja estadística está demostrada (+USD). Mantén tu riesgo fijo y deja correr la probabilidad a tu favor.';
     } else if (slScore < 70) {
       this.aiInsights.actionableAdvice = 'Regla de Oro: Coloca siempre tu Stop Loss desde el momento de entrar. Cortar pérdidas rápido es el secreto de la rentabilidad.';
@@ -539,11 +869,33 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  printReport(): void {
-    this.toastService.info('Abriendo vista de impresión / PDF...');
+  showPrintModal: boolean = false;
+  todayDate: Date = new Date();
+
+  get recentFactsheetTrades(): any[] {
+    if (!this.filteredTrades || this.filteredTrades.length === 0) return [];
+    return this.filteredTrades.slice(-10).reverse();
+  }
+
+  openPrintModal(): void {
+    this.todayDate = new Date();
+    this.showPrintModal = true;
+  }
+
+  closePrintModal(): void {
+    this.showPrintModal = false;
+  }
+
+  triggerPrintFactsheet(): void {
+    document.body.classList.add('printing-factsheet');
+    window.print();
     setTimeout(() => {
-      window.print();
-    }, 250);
+      document.body.classList.remove('printing-factsheet');
+    }, 600);
+  }
+
+  printReport(): void {
+    this.openPrintModal();
   }
 
   updateLineChart(): void {

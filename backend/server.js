@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
@@ -14,9 +16,43 @@ require('./models/Trade');
 
 const app = express();
 
+// Seguridad con Helmet (permitiendo CSP para recursos locales y cross-origin)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Rate Limiters para protección de fuerza bruta y abuso de API
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas solicitudes desde esta IP, por favor intente más tarde.' }
+});
+
+const authLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 25,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados intentos de inicio de sesión. Por seguridad, intente en 15 minutos.' }
+});
+
+const detectEmotionLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 45,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Límite de solicitudes de análisis de emoción alcanzado. Por favor espere un momento.' }
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use('/api', apiLimiter);
+
+app.use('/api/auth/login', authLoginLimiter);
+app.use('/api/trades/detect-emotion', detectEmotionLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/trades', tradeRoutes);
@@ -146,41 +182,123 @@ app.get('/api/fx-rates', async (req, res) => {
   res.json({ rates: fxRatesCache.rates, provider: fxRatesCache.provider, lastUpdated: new Date(fxRatesCache.lastFetch || Date.now()).toISOString() });
 });
 
-// Endpoint Proxy para obtener precios en vivo (evita CORS del frontend)
+// Función para consultar cotización exacta de TradingView Scanner (coincide con la gráfica)
+async function fetchTradingViewPrice(symbol, market) {
+  try {
+    let endpoint = 'forex';
+    let tickers = [];
+    const clean = symbol.split(' (')[0].replace('/', '').replace('(OTC)', '').trim().toUpperCase();
+
+    if (market === 'Forex' || market === 'Binarias') {
+      endpoint = 'forex';
+      tickers = ['FX:' + clean, 'FX_IDC:' + clean, 'OANDA:' + clean];
+    } else if (market === 'Cryptos') {
+      endpoint = 'crypto';
+      let pair = clean;
+      if (!pair.endsWith('USDT') && !pair.endsWith('USD')) pair += 'USDT';
+      tickers = ['BINANCE:' + pair];
+    } else if (market === 'Acciones') {
+      endpoint = 'america';
+      tickers = ['NASDAQ:' + clean, 'NYSE:' + clean];
+    } else if (market === 'Futuros') {
+      endpoint = 'futures';
+      const match = symbol.match(/\(([^)]+)\)/);
+      const code = match ? match[1].trim() : symbol.split(' ')[0].trim();
+      tickers = ['CME_MINI:' + code + '1!', 'COMEX:' + code + '1!', 'NYMEX:' + code + '1!'];
+    }
+
+    if (tickers.length === 0) return null;
+
+    const res = await fetch('https://scanner.tradingview.com/' + endpoint + '/scan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      body: JSON.stringify({ symbols: { tickers }, columns: ['close'] }),
+      signal: AbortSignal.timeout(4000)
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.data && data.data.length > 0 && data.data[0].d?.[0]) {
+      return { price: data.data[0].d[0], symbol: data.data[0].s, provider: 'TradingView' };
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Endpoint Proxy para obtener precios en vivo (prioriza TradingView para coincidencia idéntica)
 app.get('/api/price', async (req, res) => {
   const { symbol, market } = req.query;
+  if (!symbol) {
+    return res.status(400).json({ error: 'Símbolo requerido' });
+  }
+
   try {
-    let querySymbol = symbol;
+    // 1. Intentar primero con TradingView Scanner para que el precio coincida exactamente con la gráfica
+    const tvData = await fetchTradingViewPrice(symbol, market);
+    if (tvData && tvData.price !== null && tvData.price !== undefined) {
+      return res.json(tvData);
+    }
+
+    // 2. Fallback secundario a Yahoo Finance si TradingView Scanner no devuelve datos
+    let querySymbol = symbol.trim();
     
     // Adaptar símbolos para Yahoo Finance
     if (market === 'Forex' || market === 'Binarias') {
-      // "EUR/USD" -> "EURUSD=X"
-      querySymbol = symbol.split(' (')[0].replace('/', '') + '=X';
+      // "EUR/USD" o "EUR/USD (OTC)" -> "EURUSD=X"
+      const clean = symbol.split(' (')[0].replace('/', '').trim().toUpperCase();
+      querySymbol = clean + '=X';
     } else if (market === 'Futuros') {
       // "S&P 500 (ES)" -> "ES=F"
       const match = symbol.match(/\(([^)]+)\)/);
-      querySymbol = match ? match[1] + '=F' : symbol.split(' ')[0] + '=F';
+      querySymbol = match ? match[1].trim() + '=F' : symbol.split(' ')[0].trim() + '=F';
     } else if (market === 'Acciones') {
       // "AAPL (Apple)" -> "AAPL"
-      querySymbol = symbol.split(' ')[0];
+      querySymbol = symbol.split(' ')[0].trim().toUpperCase();
     } else if (market === 'Cryptos') {
-      // "BTC/USDT" -> "BTC-USD"
-      querySymbol = symbol.split(' (')[0].replace('/', '-');
+      // "BTC/USDT", "BTCUSDT", "BTC" -> "BTC-USD"
+      let clean = symbol.split(' (')[0].trim().toUpperCase();
+      if (clean.includes('/')) {
+        clean = clean.split('/')[0];
+      } else if (clean.endsWith('USDT')) {
+        clean = clean.replace('USDT', '');
+      } else if (clean.endsWith('USD')) {
+        clean = clean.replace('USD', '');
+      }
+      querySymbol = `${clean}-USD`;
     }
 
-    // Usar fetch nativo (Node 18+)
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${querySymbol}?interval=1m`, { signal: AbortSignal.timeout(3000) });
+    // Usar fetch nativo (Node 18+) con User-Agent y timeout de 6 segundos
+    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(querySymbol)}?interval=1m`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Proveedor devolvió estado ${response.status}` });
+    }
+
     const data = await response.json();
     
     if (data.chart && data.chart.result && data.chart.result.length > 0) {
-      const price = data.chart.result[0].meta.regularMarketPrice;
-      return res.json({ price });
-    } else {
-      return res.status(404).json({ error: 'Precio no encontrado' });
+      const meta = data.chart.result[0].meta;
+      const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? meta.previousClose;
+      if (price !== undefined && price !== null) {
+        return res.json({ price, symbol: querySymbol, provider: 'YahooFinance' });
+      }
     }
+    
+    return res.status(404).json({ error: `Precio no encontrado para ${querySymbol}` });
   } catch (error) {
-    console.error('Error proxying price:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+    console.error('Error proxying price:', error.message);
+    res.status(500).json({ error: 'Error del servidor al obtener precio', details: error.message });
   }
 });
 

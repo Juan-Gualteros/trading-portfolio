@@ -92,6 +92,14 @@ const Trade = sequelize.define('Trade', {
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  entry_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  exit_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
   }
 }, {
   timestamps: true,

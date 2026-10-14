@@ -22,6 +22,10 @@ export class AccountService {
     return this.http.put(`${this.apiUrl}/${id}`, accountData);
   }
 
+  setDefaultAccount(id: number): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${id}/set-default`, {});
+  }
+
   deleteAccount(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }

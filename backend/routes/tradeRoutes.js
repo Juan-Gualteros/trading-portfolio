@@ -7,12 +7,16 @@ const {
   deleteTrade, 
   getMetrics,
   getPsychologicalAnalysis,
-  detectEmotion
+  detectEmotion,
+  getQuantitativeAnalysis,
+  importTradesCSV
 } = require('../controllers/tradeController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
 
+router.get('/quantitative-analysis', getQuantitativeAnalysis);
+router.post('/import-csv', importTradesCSV);
 router.get('/psychological-analysis', getPsychologicalAnalysis);
 router.post('/detect-emotion', detectEmotion);
 router.get('/metrics', getMetrics);

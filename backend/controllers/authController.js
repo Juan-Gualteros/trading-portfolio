@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -88,8 +89,15 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Check if user exists
-    const user = await User.findOne({ where: { username } });
+    // Check if user exists by username or email
+    const user = await User.findOne({
+      where: {
+        [Op.or]: [
+          { username: username },
+          { email: username }
+        ]
+      }
+    });
     if (!user) {
       return res.status(400).json({ message: 'Credenciales inválidas' });
     }

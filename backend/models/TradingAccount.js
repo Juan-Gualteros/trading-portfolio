@@ -29,6 +29,10 @@ const TradingAccount = sequelize.define('TradingAccount', {
   balance: {
     type: DataTypes.FLOAT,
     defaultValue: 10000
+  },
+  is_default: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   timestamps: true,

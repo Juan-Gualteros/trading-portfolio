@@ -1,177 +1,159 @@
+const { z } = require('zod');
 const Trade = require('../models/Trade');
 const TradingAccount = require('../models/TradingAccount');
+const {
+  calculatePnLInUSD,
+  calculateTradeRiskUSD,
+  calculateRMultiple,
+  calculateExpectancy,
+  calculateEmotionMatrix,
+  calculateSessionBreakdown,
+  runMonteCarloSimulation
+} = require('../utils/quantitativeEngine');
+const {
+  detectRevengeTrade,
+  calculateDisciplineScore,
+  detectPsychologicalArchetype
+} = require('../utils/psychologyEngine');
+
+// Caché Inteligente en Memoria para Auditoría Conductual e IA de Google Gemini (< 50ms)
+const auditCache = new Map();
+
+// Schema de validación con Zod para garantizar resiliencia y tipado numérico
+const tradeInputSchema = z.object({
+  accountId: z.coerce.number({ required_error: 'Se requiere accountId válido' }),
+  entry_price: z.coerce.number().nullable().optional(),
+  exit_price: z.coerce.number().nullable().optional(),
+  volume: z.coerce.number().positive().default(1),
+  stop_loss: z.coerce.number().nullable().optional(),
+  take_profit: z.coerce.number().nullable().optional(),
+  risk_percentage: z.coerce.number().nonnegative().optional().default(1.0),
+  payout_percentage: z.coerce.number().optional().default(85),
+  pnl: z.coerce.number().nullable().optional(),
+  trade_type: z.enum(['LONG', 'SHORT']).optional().default('LONG'),
+  market_type: z.string().optional().default('General'),
+  asset: z.string().optional().default(''),
+  emotion_state: z.string().optional().default('Calma'),
+  duration: z.string().nullable().optional(),
+  trading_style: z.string().nullable().optional(),
+  instrument_type: z.string().nullable().optional(),
+  status: z.string().optional(),
+  screenshot: z.string().nullable().optional(),
+  confluences: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  entry_date: z.string().nullable().optional(),
+  exit_date: z.string().nullable().optional()
+});
 
 const getTrades = async (req, res) => {
   try {
-    const { accountId } = req.query;
+    const { accountId, page, limit } = req.query;
     const whereClause = { userId: req.user.id };
     if (accountId) {
       whereClause.accountId = accountId;
     }
-    const trades = await Trade.findAll({ where: whereClause });
+
+    // Paginación backend si se especifican page o limit
+    if (page || limit) {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.max(1, Math.min(250, parseInt(limit, 10) || 25));
+      const offset = (pageNum - 1) * limitNum;
+
+      const { rows, count } = await Trade.findAndCountAll({
+        where: whereClause,
+        limit: limitNum,
+        offset,
+        order: [['createdAt', 'DESC']]
+      });
+
+      return res.json({
+        trades: rows,
+        total: count,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(count / limitNum)
+      });
+    }
+
+    // Respuesta completa para compatibilidad de gráficos y cálculos
+    const trades = await Trade.findAll({ 
+      where: whereClause,
+      order: [['createdAt', 'ASC']]
+    });
     res.json(trades);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Función universal para calcular PnL en dólares según mercado y activo
-const calculatePnLInUSD = (trade) => {
-  if (trade.pnl !== null && trade.pnl !== undefined && !isNaN(parseFloat(trade.pnl))) {
-    return parseFloat(trade.pnl);
-  }
-  if (trade.entry_price == null || trade.exit_price == null || !trade.volume) {
-    return null;
-  }
-  const entry = parseFloat(trade.entry_price);
-  const exit = parseFloat(trade.exit_price);
-  const volume = parseFloat(trade.volume);
-  if (isNaN(entry) || isNaN(exit) || isNaN(volume) || volume <= 0) {
-    return null;
-  }
-
-  const direction = trade.trade_type === 'LONG' ? 1 : -1;
-  const diff = exit - entry;
-  const market = trade.market_type || 'General';
-  const asset = (trade.asset || '').toUpperCase().trim();
-
-  // 1. Binarias
-  if (market === 'Binarias') {
-    const rawPayout = trade.payout_percentage !== undefined && trade.payout_percentage !== null
-      ? parseFloat(trade.payout_percentage)
-      : 85;
-    const payout = (rawPayout > 0 ? rawPayout : 85) / 100;
-    const eff = diff * direction;
-    if (eff > 0.00000001) return parseFloat((volume * payout).toFixed(2));
-    if (eff < -0.00000001) return -parseFloat(volume.toFixed(2));
-    return 0;
-  }
-
-  // 2. Cryptos & Acciones
-  if (market === 'Cryptos' || market === 'Acciones') {
-    if (asset.endsWith('/BTC') || asset.endsWith('BTC')) {
-      return parseFloat((diff * volume * direction * 65000).toFixed(2));
-    }
-    return parseFloat((diff * volume * direction).toFixed(2));
-  }
-
-  // 3. Futuros (Multiplicadores Oficiales CME / NYMEX)
-  if (market === 'Futuros') {
-    let mult = 1;
-    if (asset.includes('MES') || asset.includes('MICRO S&P')) mult = 5;
-    else if (asset.includes('(ES)') || asset.includes('S&P') || asset === 'ES' || asset.startsWith('ES1!')) mult = 50;
-    else if (asset.includes('MNQ') || asset.includes('MICRO NASDAQ')) mult = 2;
-    else if (asset.includes('(NQ)') || asset.includes('NASDAQ') || asset === 'NQ' || asset.startsWith('NQ1!')) mult = 20;
-    else if (asset.includes('MYM') || asset.includes('MICRO DOW')) mult = 0.5;
-    else if (asset.includes('(YM)') || asset.includes('DOW') || asset === 'YM' || asset.startsWith('YM1!')) mult = 5;
-    else if (asset.includes('M2K') || asset.includes('MICRO RUSSELL')) mult = 5;
-    else if (asset.includes('(RTY)') || asset.includes('RUSSELL') || asset === 'RTY') mult = 50;
-    else if (asset.includes('MCL') || asset.includes('MICRO PETR') || asset.includes('MICRO OIL') || asset.includes('MICRO CRUDE')) mult = 100;
-    else if (asset.includes('(CL)') || asset.includes('PETR') || asset === 'CL' || asset.includes('USOIL')) mult = 1000;
-    else if (asset.includes('MGC') || asset.includes('MICRO ORO') || asset.includes('MICRO GOLD')) mult = 10;
-    else if (asset.includes('(GC)') || asset.includes('ORO') || asset.includes('GOLD') || asset === 'GC' || asset.includes('XAU')) mult = 100;
-    else if (asset.includes('(SI)') || asset.includes('PLATA') || asset === 'SI' || asset.includes('XAG')) mult = 5000;
-    else if (asset.includes('(NG)') || asset === 'NG') mult = 10000;
-    else if (asset.includes('(HG)') || asset === 'HG') mult = 25000;
-    else if (asset.includes('(ZB)') || asset === 'ZB') mult = 1000;
-    else if (asset.includes('(6E)') || asset === '6E') mult = 125000;
-    else if (asset.includes('(6J)') || asset === '6J') mult = 125000;
-    return parseFloat((diff * volume * mult * direction).toFixed(2));
-  }
-
-  // 4. Forex
-  if (market === 'Forex') {
-    if (asset.includes('XAU') || asset.includes('GOLD') || asset.includes('ORO')) {
-      return parseFloat((diff * volume * 100 * direction).toFixed(2));
-    }
-    if (asset.includes('XAG') || asset.includes('SILVER') || asset.includes('PLATA')) {
-      return parseFloat((diff * volume * 5000 * direction).toFixed(2));
-    }
-
-    const rawQuote = diff * volume * 100000 * direction;
-    let base = '', quote = '';
-    if (asset.includes('/')) {
-      const parts = asset.split(' ')[0].split('/');
-      base = parts[0].trim();
-      quote = parts[1] ? parts[1].trim() : '';
-    } else {
-      const clean = asset.replace(/[^A-Z]/g, '');
-      if (clean.length === 6) {
-        base = clean.substring(0, 3);
-        quote = clean.substring(3, 6);
-      }
-    }
-
-    if (quote === 'USD') return parseFloat(rawQuote.toFixed(2));
-    if (base === 'USD') {
-      const rate = exit > 0 ? exit : entry;
-      return rate > 0 ? parseFloat((rawQuote / rate).toFixed(2)) : parseFloat(rawQuote.toFixed(2));
-    }
-
-    const fxRates = {
-      'JPY': 158.2, 'CHF': 0.892, 'CAD': 1.425, 'MXN': 19.5, 'ZAR': 18.2, 'TRY': 34.2,
-      'SEK': 10.6, 'NOK': 10.85, 'GBP': 1.323, 'EUR': 1.12, 'AUD': 0.6988, 'NZD': 0.605
-    };
-    if (quote && fxRates[quote]) {
-      const direct = ['GBP', 'EUR', 'AUD', 'NZD'].includes(quote);
-      const inUSD = direct ? (rawQuote * fxRates[quote]) : (rawQuote / fxRates[quote]);
-      return parseFloat(inUSD.toFixed(2));
-    }
-
-    if (asset.includes('JPY')) return parseFloat((rawQuote / 152.0).toFixed(2));
-    if (asset.includes('GBP')) return parseFloat((rawQuote * 1.28).toFixed(2));
-    if (asset.includes('EUR')) return parseFloat((rawQuote * 1.08).toFixed(2));
-    return parseFloat(rawQuote.toFixed(2));
-  }
-
-  return parseFloat((diff * volume * direction).toFixed(2));
-};
-
 const addTrade = async (req, res) => {
   try {
-    const { accountId, entry_price, exit_price, volume, emotion_state, trade_type, market_type, asset, duration, trading_style, instrument_type, status, stop_loss, take_profit, risk_percentage, payout_percentage, pnl, screenshot, confluences, notes } = req.body;
-    
-    if (!accountId) {
-      return res.status(400).json({ message: 'Se requiere especificar la cuenta de trading (accountId)' });
+    const parseResult = tradeInputSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ 
+        message: 'Validación fallida en los datos del trade', 
+        errors: parseResult.error.issues 
+      });
     }
 
-    // Auto-calcular PnL si no viene especificado
-    let calculatedPnl = pnl;
-    if (calculatedPnl === null || calculatedPnl === undefined || calculatedPnl === '') {
-      calculatedPnl = calculatePnLInUSD({ entry_price, exit_price, volume, trade_type, market_type, asset, payout_percentage });
-    }
+    const tradeData = parseResult.data;
 
-    let calculatedStatus = status || 'Abierta';
-    if ((calculatedStatus === 'Abierta' || !calculatedStatus) && calculatedPnl !== null && calculatedPnl !== undefined) {
+    // Auto-calcular PnL y status de forma estricta si se ingresó precio de salida
+    let calculatedPnl = null;
+    let calculatedStatus = 'Abierta';
+
+    if (tradeData.entry_price != null && tradeData.exit_price != null) {
+      calculatedPnl = calculatePnLInUSD({ 
+        entry_price: tradeData.entry_price, 
+        exit_price: tradeData.exit_price, 
+        volume: tradeData.volume, 
+        trade_type: tradeData.trade_type, 
+        market_type: tradeData.market_type, 
+        asset: tradeData.asset, 
+        payout_percentage: tradeData.payout_percentage 
+      });
       if (calculatedPnl > 0) calculatedStatus = 'Ganada';
       else if (calculatedPnl < 0) calculatedStatus = 'Perdida';
-      else if (calculatedPnl === 0) calculatedStatus = 'Empate';
+      else calculatedStatus = 'Empate';
+    } else if (tradeData.status && tradeData.status !== 'Abierta') {
+      calculatedStatus = tradeData.status;
+      calculatedPnl = tradeData.pnl;
     }
+
+    const entryDate = tradeData.entry_date ? new Date(tradeData.entry_date) : new Date();
+    const exitDate = tradeData.exit_date ? new Date(tradeData.exit_date) : (tradeData.exit_price != null ? new Date() : null);
 
     const trade = await Trade.create({
       userId: req.user.id,
-      accountId,
-      entry_price,
-      exit_price,
-      volume,
-      emotion_state,
-      trade_type,
-      market_type,
-      asset,
-      duration,
-      trading_style,
-      instrument_type,
+      accountId: tradeData.accountId,
+      entry_price: tradeData.entry_price,
+      exit_price: tradeData.exit_price,
+      volume: tradeData.volume,
+      emotion_state: tradeData.emotion_state,
+      trade_type: tradeData.trade_type,
+      market_type: tradeData.market_type,
+      asset: tradeData.asset,
+      duration: tradeData.duration,
+      trading_style: tradeData.trading_style,
+      instrument_type: tradeData.instrument_type,
       status: calculatedStatus,
-      stop_loss,
-      take_profit,
-      risk_percentage,
-      payout_percentage: payout_percentage !== undefined ? payout_percentage : 85,
+      stop_loss: tradeData.stop_loss,
+      take_profit: tradeData.take_profit,
+      risk_percentage: tradeData.risk_percentage,
+      payout_percentage: tradeData.payout_percentage,
       pnl: calculatedPnl,
-      screenshot,
-      confluences,
-      notes
+      screenshot: tradeData.screenshot,
+      confluences: tradeData.confluences,
+      notes: tradeData.notes,
+      entry_date: entryDate,
+      exit_date: exitDate,
+      createdAt: entryDate
     });
     
+    // Invalidar caché de auditoría del usuario
+    auditCache.delete(`${req.user.id}_${tradeData.accountId}`);
+    auditCache.delete(`${req.user.id}_all`);
+
     res.status(201).json(trade);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -181,16 +163,16 @@ const addTrade = async (req, res) => {
 const updateTrade = async (req, res) => {
   try {
     const tradeId = req.params.id;
-    const { entry_price, exit_price, volume, emotion_state, trade_type, market_type, asset, duration, trading_style, instrument_type, status, stop_loss, take_profit, risk_percentage, payout_percentage, pnl, screenshot, confluences, notes } = req.body;
-
     const trade = await Trade.findOne({ where: { id_trade: tradeId, userId: req.user.id } });
     if (!trade) {
       return res.status(404).json({ message: 'Trade not found' });
     }
 
-    trade.entry_price = entry_price !== undefined ? entry_price : trade.entry_price;
-    trade.exit_price = exit_price !== undefined ? exit_price : trade.exit_price;
-    trade.volume = volume !== undefined ? volume : trade.volume;
+    const { entry_price, exit_price, volume, emotion_state, trade_type, market_type, asset, duration, trading_style, instrument_type, status, stop_loss, take_profit, risk_percentage, payout_percentage, pnl, screenshot, confluences, notes, entry_date, exit_date } = req.body;
+
+    trade.entry_price = entry_price !== undefined ? (entry_price === '' ? null : parseFloat(entry_price)) : trade.entry_price;
+    trade.exit_price = exit_price !== undefined ? (exit_price === '' ? null : parseFloat(exit_price)) : trade.exit_price;
+    trade.volume = volume !== undefined ? parseFloat(volume) : trade.volume;
     trade.emotion_state = emotion_state || trade.emotion_state;
     trade.trade_type = trade_type || trade.trade_type;
     trade.market_type = market_type || trade.market_type;
@@ -198,21 +180,35 @@ const updateTrade = async (req, res) => {
     trade.duration = duration !== undefined ? duration : trade.duration;
     trade.trading_style = trading_style !== undefined ? trading_style : trade.trading_style;
     trade.instrument_type = instrument_type !== undefined ? instrument_type : trade.instrument_type;
-    if (status !== undefined) trade.status = status;
-    trade.stop_loss = stop_loss !== undefined ? stop_loss : trade.stop_loss;
-    trade.take_profit = take_profit !== undefined ? take_profit : trade.take_profit;
-    trade.risk_percentage = risk_percentage !== undefined ? risk_percentage : trade.risk_percentage;
-    if (payout_percentage !== undefined) trade.payout_percentage = payout_percentage;
-    if (pnl !== undefined && pnl !== null && pnl !== '') {
-      trade.pnl = pnl;
-    } else if (trade.exit_price != null) {
-      trade.pnl = calculatePnLInUSD(trade);
+    trade.stop_loss = stop_loss !== undefined ? (stop_loss === '' ? null : parseFloat(stop_loss)) : trade.stop_loss;
+    trade.take_profit = take_profit !== undefined ? (take_profit === '' ? null : parseFloat(take_profit)) : trade.take_profit;
+    trade.risk_percentage = risk_percentage !== undefined ? parseFloat(risk_percentage) : trade.risk_percentage;
+    if (payout_percentage !== undefined) trade.payout_percentage = parseFloat(payout_percentage);
+    
+    // Fechas históricas personalizadas de entrada y salida
+    if (entry_date !== undefined) {
+      trade.entry_date = entry_date ? new Date(entry_date) : null;
+      if (trade.entry_date) trade.createdAt = trade.entry_date;
+    }
+    if (exit_date !== undefined) {
+      trade.exit_date = exit_date ? new Date(exit_date) : null;
     }
 
-    if (trade.pnl !== null && trade.pnl !== undefined) {
+    // Bloqueo y cálculo automático de PnL y Status cuando hay precio de salida
+    if (trade.exit_price != null && trade.entry_price != null) {
+      trade.pnl = calculatePnLInUSD(trade);
       if (trade.pnl > 0) trade.status = 'Ganada';
       else if (trade.pnl < 0) trade.status = 'Perdida';
-      else if (trade.pnl === 0) trade.status = 'Empate';
+      else trade.status = 'Empate';
+      if (!trade.exit_date) trade.exit_date = new Date();
+    } else {
+      trade.status = status || 'Abierta';
+      if (trade.status === 'Abierta') {
+        trade.pnl = null;
+        trade.exit_date = null;
+      } else if (pnl !== undefined && pnl !== null && pnl !== '') {
+        trade.pnl = parseFloat(pnl);
+      }
     }
 
     if (screenshot !== undefined) trade.screenshot = screenshot;
@@ -220,6 +216,11 @@ const updateTrade = async (req, res) => {
     if (notes !== undefined) trade.notes = notes;
 
     await trade.save();
+
+    // Invalidar caché de auditoría del usuario
+    auditCache.delete(`${req.user.id}_${trade.accountId}`);
+    auditCache.delete(`${req.user.id}_all`);
+
     res.json(trade);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -229,12 +230,19 @@ const updateTrade = async (req, res) => {
 const deleteTrade = async (req, res) => {
   try {
     const tradeId = req.params.id;
-    const deleted = await Trade.destroy({ where: { id_trade: tradeId, userId: req.user.id } });
-    if (deleted) {
-      res.json({ message: 'Trade deleted' });
-    } else {
-      res.status(404).json({ message: 'Trade not found' });
+    const trade = await Trade.findOne({ where: { id_trade: tradeId, userId: req.user.id } });
+    if (!trade) {
+      return res.status(404).json({ message: 'Trade not found' });
     }
+
+    const accountId = trade.accountId;
+    await trade.destroy();
+
+    // Invalidar caché de auditoría del usuario
+    auditCache.delete(`${req.user.id}_${accountId}`);
+    auditCache.delete(`${req.user.id}_all`);
+
+    res.json({ message: 'Trade deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -258,8 +266,8 @@ Analiza la siguiente información verídica y cuantitativa de la cuenta del trad
 - Sesgos Detectados: ${data.biasesNotes}
 
 Instrucciones:
-1. Genera una síntesis narrativa profesional (summary) de 2 a 3 párrafos concisos (puedes usar etiquetas <strong> para resaltar datos clave), evaluando con rigor si el trader tiene ventaja estadística o fallas conductuales.
-2. Genera 4 prescripciones tácticas (prescriptions) ejecutables (1 oración cada una, comenzando con un emoji relevante).
+1. Genera una síntesis narrativa profesional (summary) de 2 a 3 párrafos concisos (puedes usar etiquetas <strong> para resaltar datos clave), evaluando con rigor si el trader tiene ventaja estadística o fallas conductuales. ${parseFloat(data.netPnL) < 0 ? 'ADVERTENCIA OBLIGATORIA: La cuenta tiene saldo neto en déficit (-$' + Math.abs(parseFloat(data.netPnL)) + ' USD) y fuga cuantificada (-$' + data.undisciplinedLoss + ' USD). NO felicites ni califiques al trader de estratega zen o consistente; analiza con rigor las pérdidas asimétricas y el sobreapalancamiento que erosionan la cuenta.' : ''}
+2. Genera 4 prescripciones tácticas (prescriptions) ejecutables (1 oración cada una, comenzando con un emoji relevante)${parseFloat(data.netPnL) < 0 ? ' enfocadas en frenar el drawdown, reducir el lotaje de inmediato y blindar el riesgo.' : '.'}
 
 Responde estrictamente en formato JSON válido con las llaves "summary" y "prescriptions":
 {
@@ -267,7 +275,7 @@ Responde estrictamente en formato JSON válido con las llaves "summary" y "presc
   "prescriptions": ["...", "...", "...", "..."]
 }`;
 
-    const modelsToTry = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.1-flash-lite'];
     for (const model of modelsToTry) {
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
@@ -404,7 +412,8 @@ const getMetrics = async (req, res) => {
 
 const getPsychologicalAnalysis = async (req, res) => {
   try {
-    const { accountId } = req.query;
+    const { accountId, forceRefresh } = req.query;
+    const shouldBypassCache = forceRefresh === 'true' || forceRefresh === true;
     const whereClause = { userId: req.user.id };
     let account = null;
     if (accountId) {
@@ -416,14 +425,71 @@ const getPsychologicalAnalysis = async (req, res) => {
       order: [['createdAt', 'ASC']]
     });
 
+    // Verificación de Caché Inteligente de Auditoría (Respuesta instantánea < 50ms si no hay cambios)
+    const cacheKey = `${req.user.id}_${accountId || 'all'}`;
+    const totalTradesCount = trades.length;
+    const lastUpdatedTime = trades.length > 0 
+      ? Math.max(...trades.map(t => new Date(t.updatedAt || t.createdAt).getTime())) 
+      : 0;
+
+    const cached = auditCache.get(cacheKey);
+    if (!shouldBypassCache && cached && cached.totalCount === totalTradesCount && cached.lastUpdated === lastUpdatedTime && (Date.now() - cached.timestamp < 12 * 60 * 60 * 1000)) {
+      return res.json({
+        ...cached.data,
+        fromCache: true,
+        cachedAt: new Date(cached.timestamp).toISOString()
+      });
+    }
+
+    if (shouldBypassCache) {
+      auditCache.delete(cacheKey);
+    }
+
     const initialCapital = account ? parseFloat(account.balance) : 10000;
 
     if (trades.length === 0) {
-      return res.json({
+      let aiSummaryInitial = `Bienvenido al <strong>Auditor Cuantitativo y de Psicología Operativa</strong>. La cuenta ${account ? `<strong>"${account.name}"</strong>` : ''} inicia con un índice de disciplina mental del <strong>100/100</strong> y $0.00 de fuga de capital. Tu ventaja estadística se forja respetando tu plan desde la primera operación.`;
+      let initialPrescriptions = [
+        '⛩️ <strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
+        '🛡️ <strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
+        '📐 <strong>Filtro de Confluencias:</strong> Espera pacientemente que el precio visite tu zona operativa clave.',
+        '🧘 <strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
+      ];
+      let isAiPowered = false;
+      let engine = 'Motor Cuantitativo & Finanzas Conductuales';
+
+      if (shouldBypassCache && process.env.GEMINI_API_KEY) {
+        const geminiResult = await generateGeminiCoaching({
+          accountName: account?.name || 'General',
+          marketType: account?.market_type || 'General',
+          initialBalance: initialCapital.toFixed(2),
+          currentBalance: initialCapital.toFixed(2),
+          netPnL: '0.00',
+          roi: '0.00',
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          winRate: '0.0',
+          profitFactor: '0.00',
+          disciplineScore: 100,
+          undisciplinedLoss: '0.00',
+          archetypeTitle: 'Estratega Disciplinado',
+          archetypeSubtitle: 'Disciplina inicial intacta (100% de cumplimiento)',
+          biasesNotes: 'Cuenta sin operaciones registradas, disciplina inicial máxima'
+        });
+        if (geminiResult && geminiResult.summary && Array.isArray(geminiResult.prescriptions)) {
+          aiSummaryInitial = geminiResult.summary;
+          initialPrescriptions = geminiResult.prescriptions;
+          isAiPowered = true;
+          engine = `Google Gemini AI (${geminiResult.modelUsed || 'Generativa'})`;
+        }
+      }
+
+      const emptyReport = {
         hasData: true,
         isInitial: true,
-        isAiPowered: false,
-        engine: 'Motor Cuantitativo & Finanzas Conductuales',
+        isAiPowered,
+        engine,
         accountInfo: account ? {
           id_account: account.id_account,
           name: account.name,
@@ -450,6 +516,8 @@ const getPsychologicalAnalysis = async (req, res) => {
           description: `Tu cuenta ${account ? `"${account.name}"` : ''} inicia con una hoja en blanco y 100% de disciplina mental. Tu capital ($${initialCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD) está blindado y tus reglas listas para ejecutar. Mantén este estándar impecable colocando Stop Loss técnico y respetando el riesgo por operación desde tu primer trade.`
         },
         disciplineScore: 100,
+        slAdherencePct: 100,
+        riskAdherencePct: 100,
         biases: [
           {
             name: 'Trading por Venganza (Revenge)',
@@ -486,14 +554,18 @@ const getPsychologicalAnalysis = async (req, res) => {
           potentialSavings: 0
         },
         emotionStats: [],
-        prescriptions: [
-          '⛩️ <strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
-          '🛡️ <strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
-          '📐 <strong>Filtro de Confluencias:</strong> Espera pacientemente que el precio visite tu zona operativa clave.',
-          '🧘 <strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
-        ],
-        aiSummary: `Bienvenido al <strong>Auditor Cuantitativo y de Psicología Operativa</strong>. La cuenta ${account ? `<strong>"${account.name}"</strong>` : ''} inicia con un índice de disciplina mental del <strong>100/100</strong> y $0.00 de fuga de capital. Tu ventaja estadística se forja respetando tu plan desde la primera operación.`
+        prescriptions: initialPrescriptions,
+        aiSummary: aiSummaryInitial
+      };
+
+      auditCache.set(cacheKey, {
+        totalCount: 0,
+        lastUpdated: 0,
+        data: emptyReport,
+        timestamp: Date.now()
       });
+
+      return res.json(emptyReport);
     }
 
     let totalTrades = trades.length;
@@ -568,11 +640,14 @@ const getPsychologicalAnalysis = async (req, res) => {
         }
       }
 
-      // 2. Gestión de Riesgo (institucional: <= 2.5%)
-      const risk = (current.risk_percentage !== null && current.risk_percentage !== undefined && !isNaN(parseFloat(current.risk_percentage)))
+      // 2. Gestión de Riesgo (institucional: <= 2.5% declarado y pérdida real <= 3.0% del capital de la cuenta)
+      const statedRisk = (current.risk_percentage !== null && current.risk_percentage !== undefined && !isNaN(parseFloat(current.risk_percentage)))
         ? parseFloat(current.risk_percentage)
         : 1.0;
-      const isSafeRisk = (risk <= 2.5);
+      const realLossPct = (initialCapital > 0 && pnl !== null && pnl < 0)
+        ? (Math.abs(pnl) / initialCapital) * 100
+        : 0;
+      const isSafeRisk = (statedRisk <= 2.5) && (realLossPct <= 3.0);
       if (isSafeRisk) {
         safeRiskCount++;
       }
@@ -590,7 +665,7 @@ const getPsychologicalAnalysis = async (req, res) => {
         if (prevPnl !== null && prevPnl < 0) {
           const timeDiffMinutes = (new Date(current.createdAt).getTime() - new Date(prev.createdAt).getTime()) / (1000 * 60);
           const volumeIncreased = current.volume && prev.volume && (parseFloat(current.volume) > parseFloat(prev.volume) * 1.25);
-          const isNegativeEmo = ['FOMO', 'Venganza', 'Ira', 'Frustración', 'Desquite'].includes(emo);
+          const isNegativeEmo = ['FOMO', 'Venganza', 'Ira', 'Frustración', 'Desquite', 'Miedo'].includes(emo);
 
           if (timeDiffMinutes >= 0 && timeDiffMinutes < 20 && (volumeIncreased || !isSafeRisk || !hasSL || isNegativeEmo)) {
             isRevenge = true;
@@ -654,7 +729,20 @@ const getPsychologicalAnalysis = async (req, res) => {
     }
 
     let calculatedDiscipline = Math.round(slPoints + riskPoints + emotionalPoints + planPoints);
-    if (slSetCount === totalTrades && safeRiskCount === totalTrades && revengeTradesCount === 0) {
+
+    // Penalización rigurosa por destrucción de capital y drawdown severo
+    if (netPnL < 0 && initialCapital > 0) {
+      const drawdownPct = (Math.abs(netPnL) / initialCapital) * 100;
+      const drawdownPenalty = Math.min(45, Math.round(drawdownPct * 0.5));
+      calculatedDiscipline = Math.max(10, calculatedDiscipline - drawdownPenalty);
+    }
+    if (undisciplinedLoss > 0 && initialCapital > 0) {
+      const leakagePct = (undisciplinedLoss / initialCapital) * 100;
+      const leakagePenalty = Math.min(35, Math.round(leakagePct * 0.4));
+      calculatedDiscipline = Math.max(10, calculatedDiscipline - leakagePenalty);
+    }
+
+    if (slSetCount === totalTrades && safeRiskCount === totalTrades && revengeTradesCount === 0 && netPnL >= 0) {
       calculatedDiscipline = 100;
     }
     const disciplineScore = Math.max(10, Math.min(100, calculatedDiscipline));
@@ -676,6 +764,20 @@ const getPsychologicalAnalysis = async (req, res) => {
           (losingTrades <= 1 
             ? `Tu única pérdida es simplemente varianza estadística normal y controlada por tu Stop Loss.` 
             : `Tus pérdidas están rigurosamente contenidas dentro de tu plan de riesgo.`)
+      };
+    } else if (netPnL < 0 && undisciplinedLoss > 0) {
+      archetype = {
+        title: 'El Operador en Zona de Riesgo Crítico',
+        emoji: '🚨',
+        subtitle: `Déficit operativo con fuga de capital (-$${Math.abs(netPnL).toFixed(2)} USD)`,
+        description: `La cuenta se encuentra en terreno negativo con -$${undisciplinedLoss.toFixed(2)} USD perdidos en operaciones sobreapalancadas o fuera de plan. Es prioritario reducir drásticamente el lotaje y no abrir ninguna operación sin Stop Loss técnico.`
+      };
+    } else if (netPnL < 0) {
+      archetype = {
+        title: 'El Operador en Reestructuración',
+        emoji: '📉',
+        subtitle: `Curva de capital negativa (${roi.toFixed(1)}% ROI)`,
+        description: `La cuenta registra un balance negativo de -$${Math.abs(netPnL).toFixed(2)} USD. Aunque respetes ciertas reglas técnicas, el tamaño de tus pérdidas supera a tus beneficios. Enfócate en cortar pérdidas rápido y asegurar ratio riesgo/beneficio asimétrico.`
       };
     } else if (revengeTradesCount >= 2 && revengeLossTotal > 0) {
       archetype = {
@@ -705,7 +807,7 @@ const getPsychologicalAnalysis = async (req, res) => {
         subtitle: 'Vulnerable a relajar el riesgo tras ganar operaciones',
         description: 'Tras victorias consecutivas relajas las reglas de lotaje, lo que suele devolver los beneficios acumulados en un solo trade.'
       };
-    } else if (disciplineScore >= 80) {
+    } else if (disciplineScore >= 80 && netPnL >= 0) {
       archetype = {
         title: 'El Estratega Zen',
         emoji: '⛩️',
@@ -716,6 +818,15 @@ const getPsychologicalAnalysis = async (req, res) => {
 
     // Sesgos Cognitivos Cuantificados (%)
     const biases = [
+      {
+        name: 'Sobreapalancamiento / Fuga de Capital',
+        severity: totalTrades > 0 && initialCapital > 0 ? Math.min(100, Math.round((undisciplinedLoss / initialCapital) * 100)) : 0,
+        costUSD: parseFloat(undisciplinedLoss.toFixed(2)),
+        detected: undisciplinedLoss > 0,
+        tip: undisciplinedLoss > 0
+          ? 'Reduce el tamaño de lote de inmediato. Ninguna orden individual debe arriesgar más del 1.5% del balance.'
+          : 'Excelente control del lotaje. Sin operaciones sobredimensionadas.'
+      },
       {
         name: 'Trading por Venganza (Revenge)',
         severity: totalTrades > 0 ? Math.min(100, Math.round((revengeTradesCount / totalTrades) * 100)) : 0,
@@ -764,6 +875,9 @@ const getPsychologicalAnalysis = async (req, res) => {
       prescriptions.push('🛡️ <strong>Blindaje contra la Euforia:</strong> En rachas ganadoras, resiste la tentación de sobreapalancarte creyendo que el mercado no puede fallar.');
       prescriptions.push('⛩️ <strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa. El dinero es la consecuencia natural de la maestría mental.');
     } else {
+      if (undisciplinedLoss > 0) {
+        prescriptions.push('🚨 <strong>Freno Inmediato de Sobreapalancamiento:</strong> Fuga crítica detectada de -$' + undisciplinedLoss.toFixed(2) + ' USD. Reduce el volumen a lotajes mínimos (&le; 0.01) hasta recuperar el control de capital.');
+      }
       if (revengeTradesCount > 0) {
         prescriptions.push('🛡️ <strong>Regla del Enfriamiento:</strong> Cierra el gráfico y aléjate de la pantalla mínimo 20 minutos tras tocar un Stop Loss.');
       }
@@ -773,7 +887,7 @@ const getPsychologicalAnalysis = async (req, res) => {
       if (dispositionRatio < 0.7 && lossAmounts.length >= 2) {
         prescriptions.push('🎯 <strong>Ratio Asimétrico Favorable:</strong> No aceptes trades con ratio inferior a 1:1.5. Mover a Break Even en 1:1 protege la psicología.');
       }
-      prescriptions.push('🧘 <strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa, no por el dinero diario.');
+      prescriptions.push('🧘 <strong>Preservación de Capital Primero:</strong> Con la cuenta en déficit (-$' + Math.abs(netPnL).toFixed(2) + ' USD), tu prioridad absoluta es proteger el capital restante, no buscar ganancias rápidas.');
     }
 
     let aiSummary = '';
@@ -833,7 +947,7 @@ const getPsychologicalAnalysis = async (req, res) => {
       }
     }
 
-    res.json({
+    const finalReport = {
       hasData: true,
       isAiPowered,
       engine,
@@ -860,6 +974,8 @@ const getPsychologicalAnalysis = async (req, res) => {
       },
       archetype,
       disciplineScore,
+      slAdherencePct: Math.round(slPct * 100),
+      riskAdherencePct: Math.round(riskPct * 100),
       biases,
       financialImpact: {
         disciplinedPnL: parseFloat(disciplinedPnL.toFixed(2)),
@@ -874,7 +990,16 @@ const getPsychologicalAnalysis = async (req, res) => {
       })).sort((a, b) => b.pnl - a.pnl),
       prescriptions,
       aiSummary
+    };
+
+    auditCache.set(cacheKey, {
+      totalCount: totalTradesCount,
+      lastUpdated: lastUpdatedTime,
+      data: finalReport,
+      timestamp: Date.now()
     });
+
+    res.json(finalReport);
   } catch (error) {
     console.error('Error in psychological analysis:', error);
     res.status(500).json({ message: 'Error analyzing psychology', error: error.message });
@@ -971,6 +1096,134 @@ const detectEmotion = async (req, res) => {
   }
 };
 
+const getQuantitativeAnalysis = async (req, res) => {
+  try {
+    const { accountId } = req.query;
+    const whereClause = { userId: req.user.id };
+    let account = null;
+    if (accountId) {
+      whereClause.accountId = accountId;
+      account = await TradingAccount.findOne({ where: { id_account: accountId, userId: req.user.id } });
+    }
+    const trades = await Trade.findAll({ 
+      where: whereClause,
+      order: [['createdAt', 'ASC']]
+    });
+
+    const initialCapital = account ? parseFloat(account.balance) : 10000;
+
+    const expectancy = calculateExpectancy(trades, initialCapital);
+    const emotionMatrix = calculateEmotionMatrix(trades);
+    const sessionBreakdown = calculateSessionBreakdown(trades);
+    const monteCarlo = runMonteCarloSimulation(trades, initialCapital, 1000, 100);
+
+    res.json({
+      account: account ? {
+        id_account: account.id_account,
+        name: account.name,
+        market_type: account.market_type,
+        initialBalance: initialCapital
+      } : null,
+      totalTrades: trades.length,
+      expectancy,
+      emotionMatrix,
+      sessionBreakdown,
+      monteCarlo
+    });
+  } catch (error) {
+    console.error('Error in quantitative analysis:', error);
+    res.status(500).json({ message: 'Error analyzing quantitative metrics', error: error.message });
+  }
+};
+
+const importTradesCSV = async (req, res) => {
+  try {
+    const { accountId, trades: rawTrades } = req.body;
+    if (!accountId) {
+      return res.status(400).json({ message: 'Se requiere especificar accountId para importar operaciones.' });
+    }
+    if (!Array.isArray(rawTrades) || rawTrades.length === 0) {
+      return res.status(400).json({ message: 'No se enviaron operaciones válidas para importar.' });
+    }
+
+    const imported = [];
+    for (const raw of rawTrades) {
+      const entry = (raw.entry_price !== undefined && raw.entry_price !== null && raw.entry_price !== '') 
+        ? parseFloat(raw.entry_price) : null;
+      const exit = (raw.exit_price !== undefined && raw.exit_price !== null && raw.exit_price !== '') 
+        ? parseFloat(raw.exit_price) : null;
+      const volume = parseFloat(raw.volume) || 1;
+      const type = (raw.trade_type || raw.type || 'LONG').toString().toUpperCase().includes('SHORT') ? 'SHORT' : 'LONG';
+      const market = raw.market_type || raw.market || 'Forex';
+      const asset = raw.asset || raw.symbol || 'EUR/USD';
+      const sl = (raw.stop_loss !== undefined && raw.stop_loss !== null && raw.stop_loss !== '') 
+        ? parseFloat(raw.stop_loss) : null;
+      const tp = (raw.take_profit !== undefined && raw.take_profit !== null && raw.take_profit !== '') 
+        ? parseFloat(raw.take_profit) : null;
+      const emo = raw.emotion_state || raw.emotion || 'Calma';
+      
+      let pnl = (raw.pnl !== undefined && raw.pnl !== null && raw.pnl !== '') 
+        ? parseFloat(raw.pnl) : null;
+
+      if (pnl === null || isNaN(pnl)) {
+        pnl = calculatePnLInUSD({
+          entry_price: entry,
+          exit_price: exit,
+          volume,
+          trade_type: type,
+          market_type: market,
+          asset,
+          payout_percentage: raw.payout_percentage ? parseFloat(raw.payout_percentage) : 85
+        });
+      }
+
+      let status = raw.status || 'Abierta';
+      if (pnl !== null && !isNaN(pnl)) {
+        if (pnl > 0) status = 'Ganada';
+        else if (pnl < 0) status = 'Perdida';
+        else status = 'Empate';
+      }
+
+      const createdAt = raw.createdAt || raw.date || raw.time || new Date();
+
+      const created = await Trade.create({
+        userId: req.user.id,
+        accountId: parseInt(accountId, 10),
+        entry_price: entry,
+        exit_price: exit,
+        volume,
+        trade_type: type,
+        market_type: market,
+        asset,
+        status,
+        stop_loss: sl,
+        take_profit: tp,
+        risk_percentage: raw.risk_percentage ? parseFloat(raw.risk_percentage) : 1.0,
+        payout_percentage: raw.payout_percentage ? parseFloat(raw.payout_percentage) : 85,
+        pnl,
+        emotion_state: emo,
+        confluences: raw.confluences || '',
+        notes: raw.notes || 'Importado desde CSV',
+        createdAt: new Date(createdAt)
+      });
+      imported.push(created);
+    }
+
+    // Invalidar caché de auditoría del usuario
+    auditCache.delete(`${req.user.id}_${accountId}`);
+    auditCache.delete(`${req.user.id}_all`);
+
+    res.status(201).json({
+      message: `${imported.length} operaciones importadas exitosamente.`,
+      count: imported.length,
+      trades: imported
+    });
+  } catch (error) {
+    console.error('Error importing CSV trades:', error);
+    res.status(500).json({ message: 'Error al importar operaciones CSV', error: error.message });
+  }
+};
+
 module.exports = {
   getTrades,
   addTrade,
@@ -978,5 +1231,7 @@ module.exports = {
   deleteTrade,
   getMetrics,
   getPsychologicalAnalysis,
-  detectEmotion
+  detectEmotion,
+  getQuantitativeAnalysis,
+  importTradesCSV
 };
