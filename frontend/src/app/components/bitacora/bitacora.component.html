@@ -12,7 +12,7 @@
       </div>
       <select class="form-control" style="width: auto; min-width: 250px; display: inline-block; padding: 0.5rem 0.85rem;" *ngIf="accounts.length > 0" (change)="onAccountChange($event)" [value]="selectedAccountId">
         <option *ngFor="let account of accounts" [value]="account.id_account">
-          {{ account.is_default ? '★ ' : '' }}{{ account.name }} ({{ account.market_type }}){{ account.is_default ? ' [Principal]' : '' }}
+          {{ account.name }} ({{ account.market_type }}){{ account.is_default ? ' [Principal]' : '' }}
         </option>
       </select>
       <div *ngIf="isLoading && accounts.length === 0" style="color: var(--text-secondary); font-size: 0.85rem;">Cargando cuentas...</div>
@@ -222,10 +222,7 @@
 
     <!-- 1. Arquetipo Psicológico del Trader -->
     <div *ngIf="aiPsychologyReport?.archetype" class="emotion-archetype-card">
-      <div class="emotion-archetype-avatar">
-        {{ aiPsychologyReport?.archetype?.emoji }}
-      </div>
-      <div>
+      <div style="flex: 1;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <h3 style="margin: 0; font-size: 1.3rem; color: var(--text-primary);">{{ aiPsychologyReport?.archetype?.title }}</h3>
           <span style="font-size: 0.8rem; background: rgba(99, 102, 241, 0.25); color: #a5b4fc; padding: 2px 8px; border-radius: 4px;">Arquetipo Dominante</span>
@@ -339,20 +336,30 @@
 </div>
 
 <!-- Modal / Formulario Inline -->
-<div class="card form-card" *ngIf="showForm">
-  <div class="form-card-header">
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: var(--text-primary);">
-        {{ isEditing ? 'Editar Operación' : 'Registrar Operación' }}
-      </h3>
-      <span class="market-pill">
-        {{ currentTrade.market_type }}
-      </span>
-    </div>
-    <button type="button" class="btn-icon" (click)="cancelForm()" style="font-size: 1.5rem; color: var(--text-secondary); cursor: pointer;" title="Cerrar formulario">&times;</button>
-  </div>
-
+<div class="card form-card" id="tradeFormCard" *ngIf="showForm">
   <form (ngSubmit)="saveTrade()" #tradeForm="ngForm">
+    <div class="form-card-header">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: var(--text-primary);">
+          {{ isEditing ? 'Editar Operación' : 'Registrar Operación' }}
+        </h3>
+        <span class="market-pill">
+          {{ currentTrade.market_type }}
+        </span>
+        <span class="form-required-legend">
+          <span class="required-mark">*</span> Campos obligatorios
+        </span>
+      </div>
+
+      <!-- Botones de Acción Superiores (Inmediatamente Visibles) -->
+      <div class="form-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm" [disabled]="!tradeForm.form.valid" [title]="!tradeForm.form.valid ? 'Completa los campos obligatorios (*) para guardar' : 'Guardar trade'">
+          {{ isEditing ? 'Guardar Cambios' : 'Guardar Operación' }}
+        </button>
+        <button type="button" class="btn-icon" (click)="cancelForm()" style="font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; margin-left: 4px;" title="Cerrar formulario">&times;</button>
+      </div>
+    </div>
 
     <!-- SECCIÓN 01: PARÁMETROS DEL ACTIVO Y MERCADO -->
     <div class="form-section-header">
@@ -369,7 +376,7 @@
     <div class="form-grid-4">
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Mercado</span>
+          <span class="label-title">Mercado <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="market_type" [(ngModel)]="currentTrade.market_type" (ngModelChange)="onMarketChange()" required [disabled]="availableMarkets.length === 1">
           <option *ngFor="let market of availableMarkets" [ngValue]="market">{{ market }}</option>
@@ -378,7 +385,7 @@
 
       <div class="form-group custom-autocomplete">
         <label class="field-label">
-          <span class="label-title">Activo / Par</span>
+          <span class="label-title">Activo / Par <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <input type="text" class="form-control" name="asset" 
                [(ngModel)]="currentTrade.asset" 
@@ -397,7 +404,7 @@
 
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Tipo de Operación</span>
+          <span class="label-title">Tipo de Operación <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="trade_type" [(ngModel)]="currentTrade.trade_type" (ngModelChange)="onRiskOrPriceChange()" required>
           <option *ngFor="let type of tradeTypes" [value]="type">{{ type }}</option>
@@ -407,7 +414,7 @@
       <!-- Campo de Contexto Operativo -->
       <div class="form-group" *ngIf="currentTrade.market_type === 'Binarias'">
         <label class="field-label">
-          <span class="label-title">Duración</span>
+          <span class="label-title">Duración <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="duration" [(ngModel)]="currentTrade.duration" required>
           <option [ngValue]="null" disabled>Selecciona duración...</option>
@@ -417,7 +424,7 @@
 
       <div class="form-group" *ngIf="currentTrade.market_type === 'Acciones'">
         <label class="field-label">
-          <span class="label-title">Tipo de Instrumento</span>
+          <span class="label-title">Tipo de Instrumento <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="instrument_type" [(ngModel)]="currentTrade.instrument_type" required>
           <option [ngValue]="null" disabled>Selecciona instrumento...</option>
@@ -427,7 +434,7 @@
 
       <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias' && currentTrade.market_type !== 'Acciones'">
         <label class="field-label">
-          <span class="label-title">Estilo de Trading</span>
+          <span class="label-title">Estilo de Trading <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="trading_style" [(ngModel)]="currentTrade.trading_style" required>
           <option [ngValue]="null" disabled>Selecciona estilo...</option>
@@ -452,7 +459,7 @@
       <!-- Entrada -->
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Precio Entrada</span>
+          <span class="label-title">Precio Entrada <span class="required-mark" title="Campo obligatorio">*</span></span>
           <button type="button" class="btn-label-action" (click)="fetchCurrentPrice(currentTrade.asset, currentTrade.market_type, 'entry_price', true)" [disabled]="isFetchingEntryPrice" title="Actualizar precio de entrada en vivo">
             <svg *ngIf="!isFetchingEntryPrice" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -467,7 +474,7 @@
       <!-- Stop Loss (SL) - Oculto en Binarias -->
       <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias'">
         <label class="field-label">
-          <span class="label-title">Stop Loss (SL)</span>
+          <span class="label-title">Stop Loss (SL) <span class="optional-mark">(Opcional)</span></span>
         </label>
         <input type="number" step="0.00000001" class="form-control" name="stop_loss" [(ngModel)]="currentTrade.stop_loss" (ngModelChange)="onRiskOrPriceChange()" placeholder="0.00">
       </div>
@@ -475,7 +482,7 @@
       <!-- Take Profit (TP) - Oculto en Binarias -->
       <div class="form-group" *ngIf="currentTrade.market_type !== 'Binarias'">
         <label class="field-label">
-          <span class="label-title">Take Profit (TP)</span>
+          <span class="label-title">Take Profit (TP) <span class="optional-mark">(Opcional)</span></span>
         </label>
         <input type="number" step="0.00000001" class="form-control" name="take_profit" [(ngModel)]="currentTrade.take_profit" placeholder="0.00">
       </div>
@@ -483,7 +490,7 @@
       <!-- Precio Salida (Opcional) -->
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Precio Salida (Opcional)</span>
+          <span class="label-title">Precio Salida <span class="optional-mark">(Opcional)</span></span>
           <button type="button" class="btn-label-action" (click)="fetchCurrentPrice(currentTrade.asset, currentTrade.market_type, 'exit_price', true)" [disabled]="isFetchingExitPrice" title="Actualizar precio de salida con cotización actual">
             <svg *ngIf="!isFetchingExitPrice" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -496,37 +503,91 @@
       </div>
 
       <!-- Fecha y Hora de Entrada (Apertura) -->
-      <div class="form-group" style="grid-column: span 2;">
+      <div class="form-group date-picker-group" style="grid-column: span 2;">
         <label class="field-label">
-          <span class="label-title">Fecha y Hora Entrada</span>
-          <button type="button" class="btn-label-action" (click)="setCurrentEntryDate()" title="Asignar fecha y hora actual">
-            ⏱️ Ahora
-          </button>
+          <span class="label-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa; vertical-align: -2px; margin-right: 4px;">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Fecha y Hora Entrada <span class="required-mark" title="Campo obligatorio">*</span>
+          </span>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-label-action" (click)="setCurrentEntryDate()" title="Asignar fecha y hora actual">
+              Ahora
+            </button>
+            <button type="button" class="btn-label-action btn-calendar-open" (click)="openDatePicker('entry')" title="Abrir selector de fecha">
+              Selector Fecha
+            </button>
+          </div>
         </label>
-        <input type="datetime-local" class="form-control" name="entry_date" [(ngModel)]="currentTrade.entry_date" (ngModelChange)="onTradeDateChange()" required>
-        <small class="field-hint" style="font-size: 0.72rem; color: #94a3b8; margin-top: 3px; display: block;">
-          Momento de apertura. Si es una operación antigua, selecciona el día y la hora exactos.
+        
+        <div class="custom-date-trigger" (click)="openDatePicker('entry')" [class.active]="activeDatePicker === 'entry'" title="Clic para seleccionar fecha y hora en el calendario">
+          <div class="date-trigger-content">
+            <span class="date-trigger-text">{{ formatDisplayDate(currentTrade.entry_date) }}</span>
+            <span class="date-trigger-badge" *ngIf="getDateBadge(currentTrade.entry_date)">
+              {{ getDateBadge(currentTrade.entry_date) }}
+            </span>
+          </div>
+          <span class="date-trigger-edit-btn">
+            Cambiar ▾
+          </span>
+        </div>
+        <input type="datetime-local" class="visually-hidden-datetime" name="entry_date" [(ngModel)]="currentTrade.entry_date" (ngModelChange)="onTradeDateChange()" required>
+        <small class="field-hint" style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px; display: block;">
+          Momento de apertura. Clic en el recuadro para abrir el calendario y ajustar día y hora con precisión.
         </small>
       </div>
 
       <!-- Fecha y Hora de Cierre (Salida) -->
-      <div class="form-group" style="grid-column: span 2;">
+      <div class="form-group date-picker-group" style="grid-column: span 2;">
         <label class="field-label">
-          <span class="label-title">Fecha y Hora Cierre (Salida)</span>
-          <button type="button" class="btn-label-action" (click)="setCurrentExitDate()" [disabled]="!currentTrade.exit_price" title="Asignar fecha y hora actual">
-            ⏱️ Ahora
-          </button>
+          <span class="label-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #34d399; vertical-align: -2px; margin-right: 4px;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Fecha y Hora Cierre <span class="optional-mark">(Opcional)</span>
+          </span>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-label-action" (click)="setCurrentExitDate()" [disabled]="!currentTrade.exit_price" title="Asignar fecha y hora actual">
+              Ahora
+            </button>
+            <button type="button" class="btn-label-action btn-calendar-open" (click)="openDatePicker('exit')" [disabled]="!currentTrade.exit_price" title="Abrir selector de fecha">
+              Selector Fecha
+            </button>
+          </div>
         </label>
-        <input type="datetime-local" class="form-control" name="exit_date" [(ngModel)]="currentTrade.exit_date" [disabled]="!currentTrade.exit_price" placeholder="Automático o personalizado">
-        <small class="field-hint" style="font-size: 0.72rem; color: #94a3b8; margin-top: 3px; display: block;">
-          Momento de cierre. Se habilita al ingresar el precio de salida.
+        
+        <div class="custom-date-trigger" 
+             [class.disabled-trigger]="!currentTrade.exit_price"
+             (click)="currentTrade.exit_price && openDatePicker('exit')" 
+             [class.active]="activeDatePicker === 'exit'"
+             title="Clic para seleccionar fecha y hora de cierre">
+          <div class="date-trigger-content">
+            <span class="date-trigger-text" [style.color]="!currentTrade.exit_price ? '#64748b' : 'inherit'">
+              {{ currentTrade.exit_price ? formatDisplayDate(currentTrade.exit_date) : 'Requiere precio de salida' }}
+            </span>
+            <span class="date-trigger-badge badge-exit" *ngIf="currentTrade.exit_price && getTradeDurationString()">
+              {{ getTradeDurationString() }}
+            </span>
+          </div>
+          <span class="date-trigger-edit-btn" *ngIf="currentTrade.exit_price">
+            Cambiar ▾
+          </span>
+        </div>
+        <input type="datetime-local" class="visually-hidden-datetime" name="exit_date" [(ngModel)]="currentTrade.exit_date" [disabled]="!currentTrade.exit_price">
+        <small class="field-hint" style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px; display: block;">
+          Momento de cierre. Se activa al ingresar precio de salida para calcular la duración efectiva.
         </small>
       </div>
 
       <!-- CAMPOS EXCLUSIVOS PARA BINARIAS -->
       <div class="form-group" *ngIf="currentTrade.market_type === 'Binarias'">
         <label class="field-label">
-          <span class="label-title">% Retorno (Payout)</span>
+          <span class="label-title">% Retorno (Payout) <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <div style="display: flex; gap: 6px; align-items: center;">
           <input type="number" step="1" min="1" max="100" class="form-control" name="payout_percentage" [(ngModel)]="currentTrade.payout_percentage" (ngModelChange)="autoCalculatePnL()" placeholder="85" style="width: 85px;" required>
@@ -565,16 +626,16 @@
     <div class="form-grid-4">
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title" *ngIf="currentTrade.market_type === 'Binarias'">Importe Invertido ($ USD)</span>
-          <span class="label-title" *ngIf="currentTrade.market_type === 'Futuros'">Contratos</span>
-          <span class="label-title" *ngIf="currentTrade.market_type !== 'Binarias' && currentTrade.market_type !== 'Futuros'">Volumen / Lotaje</span>
+          <span class="label-title" *ngIf="currentTrade.market_type === 'Binarias'">Importe Invertido ($ USD) <span class="required-mark" title="Campo obligatorio">*</span></span>
+          <span class="label-title" *ngIf="currentTrade.market_type === 'Futuros'">Contratos <span class="required-mark" title="Campo obligatorio">*</span></span>
+          <span class="label-title" *ngIf="currentTrade.market_type !== 'Binarias' && currentTrade.market_type !== 'Futuros'">Volumen / Lotaje <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <input type="number" step="0.01" min="0.01" class="form-control" name="volume" [(ngModel)]="currentTrade.volume" (ngModelChange)="onVolumeChange()" [placeholder]="currentTrade.market_type === 'Binarias' ? '1.00' : '0.01'" required>
       </div>
 
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Resultado (PnL USD $)</span>
+          <span class="label-title">Resultado (PnL USD $) <span class="optional-mark">(Opcional)</span></span>
           <span *ngIf="currentTrade.pnl !== null" class="label-badge" [class.badge-gain]="currentTrade.pnl > 0" [class.badge-loss]="currentTrade.pnl < 0" [class.badge-flat]="currentTrade.pnl === 0">
             <span class="status-dot"></span>
             {{ currentTrade.pnl > 0 ? 'Ganancia' : (currentTrade.pnl < 0 ? 'Pérdida' : 'Empate') }}
@@ -585,7 +646,7 @@
 
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Estado Operación</span>
+          <span class="label-title">Estado Operación <span class="required-mark" title="Campo obligatorio">*</span></span>
         </label>
         <select class="form-control" name="status" [(ngModel)]="currentTrade.status" (ngModelChange)="onStatusChange()" [disabled]="isOutcomeLocked" required>
           <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
@@ -594,7 +655,7 @@
 
       <div class="form-group">
         <label class="field-label">
-          <span class="label-title">Estado Emocional</span>
+          <span class="label-title">Estado Emocional <span class="required-mark" title="Campo obligatorio">*</span></span>
           <button type="button" class="btn-label-ai" (click)="detectCurrentEmotion()" [disabled]="isDetectingEmotion" title="Auto-detectar estado mental basado en el contexto y notas del trade">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
@@ -708,7 +769,7 @@
     <!-- Checklist de Confluencias de Entrada -->
     <div style="margin-top: 0.5rem;">
       <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500;">
-        Confluencias / Razones de Entrada (Checklist de Estrategia):
+        Confluencias / Razones de Entrada (Checklist de Estrategia) <span class="optional-mark">(Opcional)</span>:
       </label>
       <div style="display: flex; flex-wrap: wrap; gap: 6px;">
         <button 
@@ -725,7 +786,7 @@
     <!-- Captura de Pantalla / Evidencia del Gráfico -->
     <div style="margin-top: 1.5rem;" (paste)="onPasteImage($event)">
       <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500;">
-        Evidencia del Gráfico (Captura de pantalla):
+        Evidencia del Gráfico (Captura de pantalla) <span class="optional-mark">(Opcional)</span>:
       </label>
       
       <div *ngIf="!currentTrade.screenshot" class="screenshot-dropzone">
@@ -744,7 +805,7 @@
       <div *ngIf="currentTrade.screenshot" style="position: relative; display: inline-block; margin-top: 0.5rem;">
         <img [src]="currentTrade.screenshot" alt="Captura de análisis" (click)="openScreenshot(currentTrade.screenshot)" style="max-height: 180px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); cursor: zoom-in;" title="Clic para ampliar">
         <button type="button" (click)="removeScreenshot()" style="display: block; margin-top: 6px; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer;">
-          ✕ Eliminar captura
+          Eliminar captura
         </button>
       </div>
     </div>
@@ -752,14 +813,20 @@
     <!-- Notas y Reflexión -->
     <div class="form-group" style="margin-top: 1.5rem; margin-bottom: 0;">
       <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.5rem; display: block;">
-        Notas y Reflexión de la Operación
+        Notas y Reflexión de la Operación <span class="optional-mark">(Opcional)</span>
       </label>
       <textarea class="form-control" rows="2" name="notes" [(ngModel)]="currentTrade.notes" placeholder="Detalla qué viste en el mercado, lecciones aprendidas o detalles del setup..."></textarea>
     </div>
     
-    <div class="form-actions" style="margin-top: 1.5rem;">
+    <!-- Botones de Acción del Formulario -->
+    <div class="form-actions" style="margin-top: 1.5rem; display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+      <span *ngIf="!tradeForm.form.valid" class="form-invalid-notice">
+        Completa los campos con <strong style="color: #ef4444; margin: 0 2px;">*</strong> para habilitar el guardado
+      </span>
       <button type="button" class="btn btn-cancel" (click)="cancelForm()">Cancelar</button>
-      <button type="submit" class="btn btn-primary" [disabled]="!tradeForm.form.valid">Guardar Operación</button>
+      <button type="submit" class="btn btn-primary" [disabled]="!tradeForm.form.valid" [title]="!tradeForm.form.valid ? 'Completa los campos obligatorios (*) para guardar' : 'Guardar trade'">
+        {{ isEditing ? 'Guardar Cambios' : 'Guardar Operación' }}
+      </button>
     </div>
   </form>
 
@@ -774,12 +841,15 @@
           {{ formatSymbolForTV(currentTrade.asset, currentTrade.market_type) }}
         </span>
         <span *ngIf="isHistoricalTrade" class="tv-level-pill level-historical" style="font-size: 0.74rem; padding: 2px 8px;" title="La fecha de entrada es anterior a 12h. El gráfico se enfoca en esa ventana histórica.">
-          🕰️ Modo Histórico
+          Modo Histórico
         </span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button *ngIf="currentTrade.entry_date" type="button" class="btn btn-sm btn-outline-secondary" (click)="copyTradeDateToClipboard()" title="Copiar fecha y hora. En el gráfico pulsa Alt+G para saltar directamente a esta vela." style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);">
+          Ir a Fecha (Alt+G)
+        </button>
         <button *ngIf="isHistoricalTrade" type="button" class="btn btn-sm btn-outline-secondary" (click)="renderChart(currentTrade.asset)" title="Sincronizar el gráfico con la fecha y hora de la operación" style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #a5b4fc; border-color: rgba(165, 180, 252, 0.4);">
-          🎯 Sincronizar Periodo
+          Sincronizar Periodo
         </button>
         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="renderChart(currentTrade.asset)" title="Recargar gráfico" style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 4px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -798,9 +868,15 @@
         Niveles:
       </span>
 
+      <!-- Fecha de Apertura -->
+      <span class="tv-level-pill" *ngIf="currentTrade.entry_date" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; cursor: pointer;" (click)="copyTradeDateToClipboard()" title="Clic para copiar fecha y saltar con Alt+G en el gráfico">
+        <span style="font-weight: 700;">Fecha Apertura:</span>
+        <span>{{ currentTrade.entry_date | date:'dd/MM/yyyy HH:mm' }}</span>
+      </span>
+
       <!-- Nivel de Entrada -->
       <span class="tv-level-pill level-entry" *ngIf="currentTrade.entry_price">
-        <span style="font-weight: 700;">🟢 Entrada:</span>
+        <span style="font-weight: 700;">Entrada:</span>
         <span>{{ currentTrade.entry_price }}</span>
         <span *ngIf="currentTrade.entry_date" style="opacity: 0.85; font-size: 0.72rem; margin-left: 2px;">
           ({{ currentTrade.entry_date | date:'dd/MM HH:mm' }})
@@ -809,7 +885,7 @@
 
       <!-- Nivel de Salida -->
       <span class="tv-level-pill level-exit" *ngIf="currentTrade.exit_price">
-        <span style="font-weight: 700;">🏁 Salida:</span>
+        <span style="font-weight: 700;">Salida:</span>
         <span>{{ currentTrade.exit_price }}</span>
         <span *ngIf="currentTrade.exit_date" style="opacity: 0.85; font-size: 0.72rem; margin-left: 2px;">
           ({{ currentTrade.exit_date | date:'dd/MM HH:mm' }})
@@ -818,19 +894,19 @@
 
       <!-- Stop Loss -->
       <span class="tv-level-pill level-sl" *ngIf="currentTrade.stop_loss">
-        <span style="font-weight: 700;">🛑 SL:</span>
+        <span style="font-weight: 700;">SL:</span>
         <span>{{ currentTrade.stop_loss }}</span>
       </span>
 
       <!-- Take Profit -->
       <span class="tv-level-pill level-tp" *ngIf="currentTrade.take_profit">
-        <span style="font-weight: 700;">🎯 TP:</span>
+        <span style="font-weight: 700;">TP:</span>
         <span>{{ currentTrade.take_profit }}</span>
       </span>
 
       <!-- Duración -->
       <span class="tv-level-pill level-duration" *ngIf="getTradeDurationString()">
-        <span style="font-weight: 700;">⏱️ Duración:</span>
+        <span style="font-weight: 700;">Duración:</span>
         <span>{{ getTradeDurationString() }}</span>
       </span>
     </div>
@@ -879,7 +955,7 @@
               <span class="date-main" style="color: #c084fc;">{{ trade.exit_date | date:'dd/MM/yyyy' }}</span>
               <span class="date-sub">{{ trade.exit_date | date:'hh:mm a' }}</span>
               <span class="date-duration-tag" *ngIf="getTradeRowDuration(trade)" style="font-size: 0.69rem; color: #fbbf24; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; margin-top: 2px;" title="Duración efectiva del trade">
-                ⏱️ {{ getTradeRowDuration(trade) }}
+                {{ getTradeRowDuration(trade) }}
               </span>
             </div>
             <ng-template #tradeOpenState>
@@ -991,10 +1067,16 @@
           <td class="td-actions text-center">
             <div class="actions-wrapper">
               <button type="button" class="btn-action-round edit-btn" (click)="openEditForm(trade)" title="Editar Operación">
-                ✎
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
               </button>
               <button type="button" class="btn-action-round delete-btn" (click)="deleteTrade(trade.id_trade)" title="Eliminar Operación">
-                🗑
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
               </button>
             </div>
           </td>
@@ -1146,3 +1228,120 @@
     <img [src]="activeScreenshotModal" alt="Screenshot del Gráfico" class="lightbox-image">
   </div>
 </div>
+
+<!-- Modal Selector de Fecha y Hora (Compacto y Centrado) -->
+<div class="cal-modal-backdrop" *ngIf="activeDatePicker" (click)="closeDatePicker()">
+  <div class="cal-modal-dialog" (click)="$event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="cal-modal-header">
+      <div class="cal-modal-title-group">
+        <span class="cal-modal-title">
+          {{ activeDatePicker === 'entry' ? 'Fecha y Hora de Apertura' : 'Fecha y Hora de Cierre' }}
+        </span>
+        <span class="cal-modal-subtitle">
+          {{ activeDatePicker === 'entry' ? 'Momento de ejecución de la orden' : 'Momento de salida y duración' }}
+        </span>
+      </div>
+      <button type="button" class="cal-modal-close" (click)="closeDatePicker()" aria-label="Cerrar modal">×</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="cal-modal-body">
+      
+      <!-- Presets rápidos -->
+      <div class="cal-presets-bar">
+        <span class="cal-presets-label">Atajos:</span>
+        <div class="cal-presets-chips">
+          <button type="button" class="cal-chip" (click)="applyTraderPreset('now')">Ahora</button>
+          <ng-container *ngIf="activeDatePicker === 'entry'">
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('-15m')">-15m</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('-1h')">-1h</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('-4h')">-4h</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('yesterday')">Ayer</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('ny_open')">NY 9:30</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('london_open')">LON 3:00</button>
+          </ng-container>
+          <ng-container *ngIf="activeDatePicker === 'exit'">
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('+5m')">+5m</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('+15m')">+15m</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('+30m')">+30m</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('+1h')">+1h</button>
+            <button type="button" class="cal-chip" (click)="applyTraderPreset('+4h')">+4h</button>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- Navegación Mes/Año -->
+      <div class="cal-month-nav">
+        <button type="button" class="cal-nav-btn" (click)="prevCalMonth()" title="Mes anterior">‹</button>
+        <span class="cal-nav-label">{{ calMonthName }} {{ calYear }}</span>
+        <button type="button" class="cal-nav-btn" (click)="nextCalMonth()" title="Mes siguiente">›</button>
+      </div>
+
+      <!-- Días de la semana -->
+      <div class="cal-weekdays-row">
+        <span class="cal-wd" *ngFor="let wd of dayNamesShort">{{ wd }}</span>
+      </div>
+
+      <!-- Cuadrícula de días -->
+      <div class="cal-days-grid">
+        <ng-container *ngFor="let item of calDaysGrid">
+          <button 
+            type="button" 
+            class="cal-day-cell" 
+            *ngIf="item.day"
+            [class.is-today]="item.isToday"
+            [class.is-selected]="item.isSelected"
+            [class.is-weekend]="item.isWeekend"
+            (click)="selectCalDay(item.day)">
+            {{ item.day }}
+          </button>
+          <span class="cal-day-cell cal-day-empty" *ngIf="!item.day"></span>
+        </ng-container>
+      </div>
+
+      <!-- Selector de Hora Compacto -->
+      <div class="cal-time-section">
+        <span class="cal-time-label">Hora:</span>
+        <div class="cal-time-controls">
+          <!-- Horas -->
+          <div class="cal-time-spin">
+            <button type="button" class="cal-spin-btn" (click)="stepCalHour(1)" title="Sumar hora">▲</button>
+            <input type="number" min="1" max="12" class="cal-time-input" [(ngModel)]="calHour" (ngModelChange)="setCalHour(calHour)">
+            <button type="button" class="cal-spin-btn" (click)="stepCalHour(-1)" title="Restar hora">▼</button>
+          </div>
+          <span class="cal-time-sep">:</span>
+          <!-- Minutos -->
+          <div class="cal-time-spin">
+            <button type="button" class="cal-spin-btn" (click)="stepCalMinute(5)" title="Sumar 5 minutos">▲</button>
+            <input type="number" min="0" max="59" class="cal-time-input" [(ngModel)]="calMinute" (ngModelChange)="setCalMinute(calMinute)">
+            <button type="button" class="cal-spin-btn" (click)="stepCalMinute(-5)" title="Restar 5 minutos">▼</button>
+          </div>
+          <!-- AM / PM -->
+          <div class="cal-ampm-switch">
+            <button type="button" class="cal-ampm-btn" [class.active]="calAmpm === 'AM'" (click)="toggleCalAmpm('AM')">AM</button>
+            <button type="button" class="cal-ampm-btn" [class.active]="calAmpm === 'PM'" (click)="toggleCalAmpm('PM')">PM</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen de selección -->
+      <div class="cal-summary-strip">
+        <span class="cal-summary-label">Seleccionado:</span>
+        <span class="cal-summary-val">{{ calPreviewFormatted }}</span>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="cal-modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeDatePicker()">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="applyCalDateTime()">
+        Aplicar Fecha
+      </button>
+    </div>
+
+  </div>
+</div>
+

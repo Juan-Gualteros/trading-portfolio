@@ -197,10 +197,10 @@ export class DashboardComponent implements OnInit {
   ];
 
   defaultPrescriptions: string[] = [
-    '🛡️ <strong>Regla del Enfriamiento:</strong> Cierra el gráfico y aléjate de la pantalla mínimo 20 minutos tras tocar un Stop Loss. No permitas que el dolor nuble tu análisis probabilístico.',
-    '📐 <strong>Regla del Gatillo Técnico:</strong> Exige un mínimo de 2 confluencias verificables antes de pulsar comprar o vender. Cero entradas de mercado por impulso.',
-    '🎯 <strong>Ratio Asimétrico Favorable:</strong> No aceptes trades con ratio riesgo/beneficio inferior a 1:1.5. Mover a Break Even al alcanzar 1:1 protege tu psicología.',
-    '🧘 <strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa, no por el dinero diario. La rentabilidad es la consecuencia de la maestría mental.'
+    '<strong>Regla del Enfriamiento:</strong> Cierra el gráfico y aléjate de la pantalla mínimo 20 minutos tras tocar un Stop Loss. No permitas que el dolor nuble tu análisis probabilístico.',
+    '<strong>Regla del Gatillo Técnico:</strong> Exige un mínimo de 2 confluencias verificables antes de pulsar comprar o vender. Cero entradas de mercado por impulso.',
+    '<strong>Ratio Asimétrico Favorable:</strong> No aceptes trades con ratio riesgo/beneficio inferior a 1:1.5. Mover a Break Even al alcanzar 1:1 protege tu psicología.',
+    '<strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa, no por el dinero diario. La rentabilidad es la consecuencia de la maestría mental.'
   ];
 
   constructor(
@@ -532,7 +532,7 @@ export class DashboardComponent implements OnInit {
 
   exportExcelReport(): void {
     if (!this.selectedAccount) return;
-    this.toastService.info('📊 Generando libro de cálculo estructurado en Excel (.xlsx)...');
+    this.toastService.info('Generando libro de cálculo estructurado en Excel (.xlsx)...');
     this.reportExportService.exportStructuredExcel({
       account: this.selectedAccount,
       metrics: this.metrics,
@@ -540,14 +540,14 @@ export class DashboardComponent implements OnInit {
       psychology: this.aiPsychologyReport,
       trades: this.allTrades
     });
-    this.toastService.success('✅ Archivo Excel descargado con éxito.');
+    this.toastService.success('Archivo Excel descargado con éxito.');
   }
 
   loadAiPsychologyReport(showToast: boolean = false): void {
     if (!this.selectedAccountId) return;
     this.isLoadingAiReport = true;
     if (showToast) {
-      this.toastService.info('📊 Sincronizando operaciones y re-auditando...');
+      this.toastService.info('Sincronizando operaciones y re-auditando...');
       this.tradeService.getTrades(this.selectedAccountId).subscribe({
         next: (trades) => {
           this.allTrades = (trades || []).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -587,9 +587,9 @@ export class DashboardComponent implements OnInit {
         this.isLoadingAiReport = false;
         if (showToast) {
           if (data && data.isAiPowered) {
-            this.toastService.success(`🤖 Auditoría generada con IA (${data.engine}) exitosamente.`);
+            this.toastService.success(`Auditoría generada con IA (${data.engine}) exitosamente.`);
           } else {
-            this.toastService.success(`📊 Auditoría actualizada con ${data?.engine || 'Motor Cuantitativo & Conductual'}.`);
+            this.toastService.success(`Auditoría actualizada con ${data?.engine || 'Motor Cuantitativo & Conductual'}.`);
           }
         }
       },

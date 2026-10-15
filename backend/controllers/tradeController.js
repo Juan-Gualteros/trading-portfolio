@@ -196,17 +196,39 @@ const updateTrade = async (req, res) => {
 
     // Bloqueo y cálculo automático de PnL y Status cuando hay precio de salida
     if (trade.exit_price != null && trade.entry_price != null) {
-      trade.pnl = calculatePnLInUSD(trade);
-      if (trade.pnl > 0) trade.status = 'Ganada';
-      else if (trade.pnl < 0) trade.status = 'Perdida';
-      else trade.status = 'Empate';
+      // Recalcular PnL de forma fresca con los nuevos datos evitando el PnL anterior de la base de datos
+      const freshPnl = calculatePnLInUSD({
+        entry_price: trade.entry_price,
+        exit_price: trade.exit_price,
+        volume: trade.volume,
+        trade_type: trade.trade_type,
+        market_type: trade.market_type,
+        asset: trade.asset,
+        payout_percentage: trade.payout_percentage
+      });
+
+      // Si el frontend envió un PnL válido recalculado, priorizarlo o usar el freshPnl
+      if (pnl !== undefined && pnl !== null && pnl !== '' && !isNaN(parseFloat(pnl))) {
+        trade.pnl = parseFloat(parseFloat(pnl).toFixed(2));
+      } else if (freshPnl !== null) {
+        trade.pnl = freshPnl;
+      }
+
+      if (trade.pnl > 0) {
+        trade.status = 'Ganada';
+      } else if (trade.pnl < 0) {
+        trade.status = 'Perdida';
+      } else {
+        trade.status = status || 'Empate';
+      }
+
       if (!trade.exit_date) trade.exit_date = new Date();
     } else {
       trade.status = status || 'Abierta';
       if (trade.status === 'Abierta') {
         trade.pnl = null;
         trade.exit_date = null;
-      } else if (pnl !== undefined && pnl !== null && pnl !== '') {
+      } else if (pnl !== undefined && pnl !== null && pnl !== '' && !isNaN(parseFloat(pnl))) {
         trade.pnl = parseFloat(pnl);
       }
     }
@@ -450,10 +472,10 @@ const getPsychologicalAnalysis = async (req, res) => {
     if (trades.length === 0) {
       let aiSummaryInitial = `Bienvenido al <strong>Auditor Cuantitativo y de Psicología Operativa</strong>. La cuenta ${account ? `<strong>"${account.name}"</strong>` : ''} inicia con un índice de disciplina mental del <strong>100/100</strong> y $0.00 de fuga de capital. Tu ventaja estadística se forja respetando tu plan desde la primera operación.`;
       let initialPrescriptions = [
-        '⛩️ <strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
-        '🛡️ <strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
-        '📐 <strong>Filtro de Confluencias:</strong> Espera pacientemente que el precio visite tu zona operativa clave.',
-        '🧘 <strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
+        '<strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
+        '<strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
+        '<strong>Filtro de Confluencias:</strong> Espera pacientemente que el precio visite tu zona operativa clave.',
+        '<strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
       ];
       let isAiPowered = false;
       let engine = 'Motor Cuantitativo & Finanzas Conductuales';
@@ -868,26 +890,26 @@ const getPsychologicalAnalysis = async (req, res) => {
     // Prescripciones Psicológicas y Conductuales
     const prescriptions = [];
     if (isSuperPositive) {
-      prescriptions.push(`🎯 <strong>Edge Estadístico Comprobado:</strong> Tu sistema genera valor (+${netPnL.toFixed(2)} USD). La consistencia reside en no modificar las reglas cuando ganas.`);
+      prescriptions.push(`<strong>Edge Estadístico Comprobado:</strong> Tu sistema genera valor (+${netPnL.toFixed(2)} USD). La consistencia reside en no modificar las reglas cuando ganas.`);
       prescriptions.push(losingTrades <= 1 
-        ? '🧘 <strong>Pérdidas como Costo Operativo:</strong> Tu pérdida individual es matemáticamente normal. En el trading profesional, tener un 10-25% de pérdidas es un estándar de élite institucional.'
-        : '🛡️ <strong>Preservación de Ganancias:</strong> Protege tus beneficios acumulados manteniendo el riesgo strictly &le; 2% por trade.');
-      prescriptions.push('🛡️ <strong>Blindaje contra la Euforia:</strong> En rachas ganadoras, resiste la tentación de sobreapalancarte creyendo que el mercado no puede fallar.');
-      prescriptions.push('⛩️ <strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa. El dinero es la consecuencia natural de la maestría mental.');
+        ? '<strong>Pérdidas como Costo Operativo:</strong> Tu pérdida individual es matemáticamente normal. En el trading profesional, tener un 10-25% de pérdidas es un estándar de élite institucional.'
+        : '<strong>Preservación de Ganancias:</strong> Protege tus beneficios acumulados manteniendo el riesgo strictly &le; 2% por trade.');
+      prescriptions.push('<strong>Blindaje contra la Euforia:</strong> En rachas ganadoras, resiste la tentación de sobreapalancarte creyendo que el mercado no puede fallar.');
+      prescriptions.push('<strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa. El dinero es la consecuencia natural de la maestría mental.');
     } else {
       if (undisciplinedLoss > 0) {
-        prescriptions.push('🚨 <strong>Freno Inmediato de Sobreapalancamiento:</strong> Fuga crítica detectada de -$' + undisciplinedLoss.toFixed(2) + ' USD. Reduce el volumen a lotajes mínimos (&le; 0.01) hasta recuperar el control de capital.');
+        prescriptions.push('<strong>Freno Inmediato de Sobreapalancamiento:</strong> Fuga crítica detectada de -$' + undisciplinedLoss.toFixed(2) + ' USD. Reduce el volumen a lotajes mínimos (&le; 0.01) hasta recuperar el control de capital.');
       }
       if (revengeTradesCount > 0) {
-        prescriptions.push('🛡️ <strong>Regla del Enfriamiento:</strong> Cierra el gráfico y aléjate de la pantalla mínimo 20 minutos tras tocar un Stop Loss.');
+        prescriptions.push('<strong>Regla del Enfriamiento:</strong> Cierra el gráfico y aléjate de la pantalla mínimo 20 minutos tras tocar un Stop Loss.');
       }
       if (fomoTradesCount > 0) {
-        prescriptions.push('📐 <strong>Regla del Gatillo Técnico:</strong> Exige un mínimo de 2 confluencias verificables antes de pulsar comprar o vender.');
+        prescriptions.push('<strong>Regla del Gatillo Técnico:</strong> Exige un mínimo de 2 confluencias verificables antes de pulsar comprar o vender.');
       }
       if (dispositionRatio < 0.7 && lossAmounts.length >= 2) {
-        prescriptions.push('🎯 <strong>Ratio Asimétrico Favorable:</strong> No aceptes trades con ratio inferior a 1:1.5. Mover a Break Even en 1:1 protege la psicología.');
+        prescriptions.push('<strong>Ratio Asimétrico Favorable:</strong> No aceptes trades con ratio inferior a 1:1.5. Mover a Break Even en 1:1 protege la psicología.');
       }
-      prescriptions.push('🧘 <strong>Preservación de Capital Primero:</strong> Con la cuenta en déficit (-$' + Math.abs(netPnL).toFixed(2) + ' USD), tu prioridad absoluta es proteger el capital restante, no buscar ganancias rápidas.');
+      prescriptions.push('<strong>Preservación de Capital Primero:</strong> Con la cuenta en déficit (-$' + Math.abs(netPnL).toFixed(2) + ' USD), tu prioridad absoluta es proteger el capital restante, no buscar ganancias rápidas.');
     }
 
     let aiSummary = '';

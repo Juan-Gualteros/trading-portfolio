@@ -43,13 +43,17 @@ export class AuthService {
 
   private checkAuth(): void {
     if (isPlatformBrowser(this.platformId)) {
-      const token = localStorage.getItem('token');
+      // Limpiar residuos en localStorage para forzar que el ciclo de vida sea exclusivamente por sesión
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      const token = sessionStorage.getItem('token');
       if (token && !this.isTokenExpired(token)) {
         this.isAuthenticatedSubject.next(true);
       } else {
         if (token) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
         }
         this.isAuthenticatedSubject.next(false);
       }
@@ -80,8 +84,14 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/login`, userData).pipe(
       tap((response: any) => {
         if (isPlatformBrowser(this.platformId) && response.token) {
-          localStorage.setItem('token', response.token);
-          localStorage.setItem('user', JSON.stringify(response.user));
+          // Guardar en sessionStorage para que al reiniciar el navegador/equipo la sesión se cierre
+          sessionStorage.setItem('token', response.token);
+          sessionStorage.setItem('user', JSON.stringify(response.user));
+          
+          // Asegurar que localStorage quede limpio
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+
           this.isAuthenticatedSubject.next(true);
         }
       })
@@ -90,6 +100,8 @@ export class AuthService {
 
   logout(): void {
     if (isPlatformBrowser(this.platformId)) {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       this.isAuthenticatedSubject.next(false);
@@ -99,12 +111,26 @@ export class AuthService {
 
   getToken(): string | null {
     if (isPlatformBrowser(this.platformId)) {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (token && this.isTokenExpired(token)) {
         this.logout();
         return null;
       }
       return token;
+    }
+    return null;
+  }
+
+  getCurrentUser(): any {
+    if (isPlatformBrowser(this.platformId)) {
+      const userStr = sessionStorage.getItem('user');
+      if (userStr) {
+        try {
+          return JSON.parse(userStr);
+        } catch {
+          return null;
+        }
+      }
     }
     return null;
   }

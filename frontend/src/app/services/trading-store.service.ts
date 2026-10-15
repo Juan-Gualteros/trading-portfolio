@@ -216,7 +216,7 @@ export class TradingStoreService {
       tap({
         next: (res) => {
           this.loadTrades();
-          this.toastService.success(`🚀 ${res.count || trades.length} operaciones importadas con éxito.`);
+          this.toastService.success(`${res.count || trades.length} operaciones importadas con éxito.`);
         },
         error: (err) => {
           this.isLoading.set(false);

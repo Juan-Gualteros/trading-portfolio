@@ -21,7 +21,7 @@
       <label>Cuenta de Trading:</label>
       <select class="form-control form-control-sm" [(ngModel)]="selectedAccountId" (change)="onAccountChange($event)">
         <option *ngFor="let acc of accounts" [value]="acc.id_account">
-          {{ acc.is_default ? '★ ' : '' }}{{ acc.name || acc.account_name }} ({{ acc.market_type }}){{ acc.is_default ? ' [Principal]' : '' }}
+          {{ acc.name || acc.account_name }} ({{ acc.market_type }}){{ acc.is_default ? ' [Principal]' : '' }}
         </option>
       </select>
     </div>
@@ -228,13 +228,13 @@
     <!-- Header -->
     <div class="quant-header">
       <div class="quant-title-area">
-        <div class="quant-icon-badge">🧠</div>
+        <div class="quant-icon-badge">Q</div>
         <div>
           <div class="quant-badge-row">
             <h3 class="quant-title">Expansión Cuantitativa & Modelado Estocástico</h3>
-            <span class="quant-inst-pill">⚡ Motor Institucional</span>
+            <span class="quant-inst-pill">Motor Institucional</span>
             <span class="quant-trades-pill" *ngIf="quantitativeAnalysis">
-              ⚡ {{ quantitativeAnalysis.totalTrades || allTrades.length }} Operaciones Modeladas
+              {{ quantitativeAnalysis.totalTrades || allTrades.length }} Operaciones Modeladas
             </span>
           </div>
           <p class="quant-subtitle">
@@ -245,8 +245,8 @@
 
       <div class="quant-actions">
         <button class="btn btn-secondary btn-sm" (click)="loadQuantitativeAnalysis()" [disabled]="isLoadingQuantitative" title="Recalcular métricas cuantitativas y Monte Carlo">
-          <span *ngIf="!isLoadingQuantitative">🔄 Recalcular Modelo</span>
-          <span *ngIf="isLoadingQuantitative">⏳ Simulando...</span>
+          <span *ngIf="!isLoadingQuantitative">Recalcular Modelo</span>
+          <span *ngIf="isLoadingQuantitative">Simulando...</span>
         </button>
       </div>
     </div>
@@ -254,16 +254,16 @@
     <!-- Pestañas de Navegación -->
     <div class="quant-nav-tabs">
       <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'expectancy'" (click)="activeQuantitativeTab = 'expectancy'">
-        📐 Expectanza ($E$) & R-Multiples
+        Expectanza ($E$) & R-Multiples
       </button>
       <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'emociones'" (click)="activeQuantitativeTab = 'emociones'">
-        🎭 Matriz Empírica Emoción vs. PnL
+        Matriz Empírica Emoción vs. PnL
       </button>
       <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'sesiones'" (click)="activeQuantitativeTab = 'sesiones'">
-        🌐 Rendimiento por Sesión & Fatiga
+        Rendimiento por Sesión & Fatiga
       </button>
       <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'montecarlo'" (click)="activeQuantitativeTab = 'montecarlo'">
-        🎲 Simulador Monte Carlo & Ruina
+        Simulador Monte Carlo & Ruina
       </button>
     </div>
 
@@ -310,7 +310,6 @@
       <!-- Fórmula y Demostración Cuantitativa -->
       <div class="math-formula-box">
         <div class="formula-header">
-          <span class="formula-icon">📐</span>
           <strong>Demostración Formal de la Expectanza Matemática (E):</strong>
         </div>
         <div class="formula-latex">
@@ -341,7 +340,6 @@
     <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'emociones'">
       <!-- Banner de Diagnóstico Empírico -->
       <div class="academic-insight-banner">
-        <div class="insight-banner-icon">💡</div>
         <div>
           <h5 style="margin: 0 0 4px 0; color: #38bdf8; font-size: 0.95rem;">Impacto Estadístico del Estado Emocional:</h5>
           <p style="margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary);" *ngIf="quantitativeAnalysis?.emotionMatrix?.comparativeInsights && quantitativeAnalysis?.emotionMatrix?.comparativeInsights?.length > 0">
@@ -425,7 +423,6 @@
     <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'sesiones'">
       <!-- Alerta de Fatiga Operativa -->
       <div class="fatigue-alert-banner" *ngIf="quantitativeAnalysis?.sessionBreakdown?.fatigueAlerts && quantitativeAnalysis?.sessionBreakdown?.fatigueAlerts?.length > 0">
-        <div class="fatigue-icon">⚠️</div>
         <div>
           <h5 style="margin: 0 0 3px 0; color: #f87171; font-size: 0.95rem;">Alerta Cuantitativa de Fatiga Operativa:</h5>
           <p style="margin: 0; font-size: 0.88rem; color: #fca5a5;">
@@ -439,8 +436,8 @@
         <div class="session-card" *ngFor="let s of (quantitativeAnalysis?.sessionBreakdown?.sessions || [])" [class.session-best]="s.code === quantitativeAnalysis?.sessionBreakdown?.bestSession?.code" [class.session-worst]="s.code === quantitativeAnalysis?.sessionBreakdown?.worstSession?.code && s.totalPnL < 0">
           <div class="session-card-header">
             <span class="session-name">{{ s.sessionName }}</span>
-            <span class="session-badge-best" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.bestSession?.code">⭐ Más Rentable</span>
-            <span class="session-badge-worst" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.worstSession?.code && s.totalPnL < 0">⚠️ Mayor Fuga</span>
+            <span class="session-badge-best" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.bestSession?.code">Más Rentable</span>
+            <span class="session-badge-worst" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.worstSession?.code && s.totalPnL < 0">Mayor Fuga</span>
           </div>
           <div class="session-pnl-strip" [ngClass]="s.totalPnL >= 0 ? 'text-success' : 'text-danger'">
             {{ s.totalPnL >= 0 ? '+' : '' }}${{ s.totalPnL | number:'1.2-2' }} <small>USD</small>
@@ -531,7 +528,6 @@
       <!-- Interpretación y Marco Metodológico -->
       <div class="math-formula-box" style="margin-top: 1.5rem;">
         <div class="formula-header">
-          <span class="formula-icon">🎲</span>
           <strong>Fórmula Analítica de Riesgo de Ruina (Perry Kaufman & Ralph Vince):</strong>
         </div>
         <div class="formula-latex">
@@ -550,14 +546,14 @@
     <div class="ai-auditor-header">
       <div class="ai-auditor-title-area">
         <div class="ai-avatar-badge">
-          <span class="ai-icon">📊</span>
+          <span class="ai-icon">AI</span>
           <span class="ai-live-pulse" title="Auditoría Operativa Activa"></span>
         </div>
         <div>
           <div class="ai-badge-row">
             <h3 class="ai-auditor-title">Auditor Cuantitativo y de Psicología Operativa</h3>
             <span class="ai-version-pill" [class.ai-powered]="aiPsychologyReport?.isAiPowered">
-              {{ aiPsychologyReport?.isAiPowered ? '🤖 ' : '📊 ' }}{{ aiPsychologyReport?.engine || 'Motor Cuantitativo & Conductual' }}
+              {{ aiPsychologyReport?.engine || 'Motor Cuantitativo & Conductual' }}
             </span>
             <span class="ai-status-pill" [class.status-good]="(aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70" [class.status-warn]="(aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 || (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 70">
               ● {{ (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 ? 'Alerta: Capital en Drawdown' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70 ? 'Disciplina Estable' : 'Alerta de Riesgo') }}
@@ -571,8 +567,8 @@
 
       <div class="ai-auditor-actions">
         <button class="btn btn-ai-refresh" (click)="loadAiPsychologyReport(true)" [disabled]="isLoadingAiReport" title="Volver a auditar las operaciones de la cuenta">
-          <span *ngIf="!isLoadingAiReport">⚡ Re-Auditar Operaciones</span>
-          <span *ngIf="isLoadingAiReport" class="loading-spin">🔄 Auditando...</span>
+          <span *ngIf="!isLoadingAiReport">Re-Auditar Operaciones</span>
+          <span *ngIf="isLoadingAiReport" class="loading-spin">Auditando...</span>
         </button>
       </div>
     </div>
@@ -587,7 +583,6 @@
           <span class="cockpit-tag">Perfil Mental</span>
         </div>
         <div class="archetype-body">
-          <div class="archetype-emoji">{{ aiPsychologyReport?.archetype?.emoji || '⛩️' }}</div>
           <div class="archetype-info">
             <h4 class="archetype-title">{{ aiPsychologyReport?.archetype?.title || 'Estratega Disciplinado' }}</h4>
             <span class="archetype-sub">{{ aiPsychologyReport?.archetype?.subtitle || 'Disciplina inicial intacta (100%)' }}</span>
@@ -645,7 +640,7 @@
           ¡Cero dinero perdido por indisciplina! Tu capital está 100% blindado por tus reglas.
         </p>
         <div class="leakage-footer" *ngIf="(aiPsychologyReport?.financialImpact?.potentialSavings || 0) > 0">
-          💡 Dinero recuperable respetando tu plan: <strong class="text-success">+${{ (aiPsychologyReport?.financialImpact?.potentialSavings || 0) | number:'1.2-2' }}</strong>
+          Dinero recuperable respetando tu plan: <strong class="text-success">+${{ (aiPsychologyReport?.financialImpact?.potentialSavings || 0) | number:'1.2-2' }}</strong>
         </div>
       </div>
 
@@ -676,13 +671,13 @@
     <!-- Navegación de Pestañas del Auditor -->
     <div class="ai-tabs-bar">
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'resumen'" (click)="activeAuditorTab = 'resumen'">
-        📑 Diagnóstico Conductual y Desempeño
+        Diagnóstico Conductual y Desempeño
       </button>
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'sesgos'" (click)="activeAuditorTab = 'sesgos'">
-        🔬 Sesgos Cognitivos Cuantificados ({{ aiPsychologyReport?.biases?.length || 4 }})
+        Sesgos Cognitivos Cuantificados ({{ aiPsychologyReport?.biases?.length || 4 }})
       </button>
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'protocolos'" (click)="activeAuditorTab = 'protocolos'">
-        🛡️ Protocolos Tácticos de Rendimiento ({{ aiPsychologyReport?.prescriptions?.length || 4 }})
+        Protocolos Tácticos de Rendimiento ({{ aiPsychologyReport?.prescriptions?.length || 4 }})
       </button>
     </div>
 
@@ -693,28 +688,28 @@
       <!-- 4 Pilares de Evaluación -->
       <div class="ai-pillars-grid">
         <div class="pillar-item">
-          <div class="pillar-icon">🧠</div>
+          <div class="pillar-icon">01</div>
           <div class="pillar-body">
             <h5>Control Emocional</h5>
             <p>{{ aiInsights.psychology }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">🛡️</div>
+          <div class="pillar-icon">02</div>
           <div class="pillar-body">
             <h5>Gestión de Riesgo</h5>
             <p>{{ aiInsights.risk }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">🎯</div>
+          <div class="pillar-icon">03</div>
           <div class="pillar-body">
             <h5>Ejecución Técnica</h5>
             <p>{{ aiInsights.bestStrategy }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">⭐</div>
+          <div class="pillar-icon">04</div>
           <div class="pillar-body">
             <h5>Regla de Oro Personalizada</h5>
             <p>{{ aiInsights.actionableAdvice }}</p>
@@ -741,7 +736,7 @@
             <strong class="text-danger">-${{ bias.costUSD | number:'1.2-2' }} USD</strong>
           </div>
           <p class="bias-tip">
-            💡 <strong>Recomendación Técnica:</strong> {{ bias.tip }}
+            <strong>Recomendación Técnica:</strong> {{ bias.tip }}
           </p>
         </div>
       </div>

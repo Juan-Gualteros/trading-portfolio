@@ -14,10 +14,10 @@ import { ToastService, Toast } from '../../services/toast.service';
         [ngClass]="'toast-' + toast.type"
         (click)="dismiss(toast.id)">
         <div class="toast-icon">
-          <span *ngIf="toast.type === 'success'">✓</span>
-          <span *ngIf="toast.type === 'error'">✕</span>
-          <span *ngIf="toast.type === 'warning'">⚠️</span>
-          <span *ngIf="toast.type === 'info'">ℹ️</span>
+          <svg *ngIf="toast.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <svg *ngIf="toast.type === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <svg *ngIf="toast.type === 'warning'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <svg *ngIf="toast.type === 'info'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         </div>
         <div class="toast-message">{{ toast.message }}</div>
         <button class="toast-close" (click)="dismiss(toast.id); $event.stopPropagation()">×</button>
@@ -55,6 +55,12 @@ import { ToastService, Toast } from '../../services/toast.service';
     }
     .toast-item:hover {
       transform: translateY(-2px);
+    }
+    .toast-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
     .toast-success {
       border-left: 4px solid #10b981;

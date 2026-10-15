@@ -41,10 +41,6 @@ export class BitacoraComponent implements OnInit {
   isFetchingEntryPrice = false;
   isFetchingExitPrice = false;
   
-  // Herramienta visual Long / Short Position y líneas sobre el gráfico
-  showChartOverlay = true;
-  chartOverlayMode: 'position' | 'lines' = 'position';
-  
   showAccountForm = false;
   isEditingAccount = false;
   accountForm: any = { name: '', market_type: 'General', balance: 10000 };
@@ -580,6 +576,237 @@ export class BitacoraComponent implements OnInit {
     return `${days}d ${remHours}h`;
   }
 
+  // --- CALENDARIO Y SELECTOR DE FECHA/HORA PROFESIONAL ---
+  activeDatePicker: 'entry' | 'exit' | null = null;
+  calYear: number = new Date().getFullYear();
+  calMonth: number = new Date().getMonth(); // 0 - 11
+  calSelectedDay: number = new Date().getDate();
+  calHour: number = 12; // 1 - 12
+  calMinute: number = 0; // 0 - 59
+  calAmpm: 'AM' | 'PM' = 'AM';
+  
+  readonly monthNames: string[] = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  readonly dayNamesShort: string[] = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  get calMonthName(): string {
+    return this.monthNames[this.calMonth] || '';
+  }
+
+  get calDaysGrid(): { day: number | null, isToday: boolean, isSelected: boolean, isWeekend: boolean }[] {
+    const year = this.calYear;
+    const month = this.calMonth;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Primer día del mes: 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+    let firstDayIndex = new Date(year, month, 1).getDay();
+    // Normalizar para que 0 sea Lunes, 6 Domingo
+    firstDayIndex = (firstDayIndex + 6) % 7;
+
+    const grid: { day: number | null, isToday: boolean, isSelected: boolean, isWeekend: boolean }[] = [];
+    
+    for (let i = 0; i < firstDayIndex; i++) {
+      grid.push({ day: null, isToday: false, isSelected: false, isWeekend: false });
+    }
+
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayOfWeek = (firstDayIndex + d - 1) % 7;
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      const isToday = isCurrentMonth && today.getDate() === d;
+      const isSelected = this.calSelectedDay === d;
+      grid.push({ day: d, isToday, isSelected, isWeekend });
+    }
+
+    return grid;
+  }
+
+  openDatePicker(type: 'entry' | 'exit'): void {
+    if (type === 'exit' && !this.currentTrade?.exit_price) return;
+    if (this.activeDatePicker === type) {
+      this.closeDatePicker();
+      return;
+    }
+    this.activeDatePicker = type;
+    const raw = type === 'entry' ? this.currentTrade?.entry_date : this.currentTrade?.exit_date;
+    const d = raw ? new Date(raw) : new Date();
+    const safeDate = isNaN(d.getTime()) ? new Date() : d;
+
+    this.calYear = safeDate.getFullYear();
+    this.calMonth = safeDate.getMonth();
+    this.calSelectedDay = safeDate.getDate();
+
+    const h24 = safeDate.getHours();
+    this.calAmpm = h24 >= 12 ? 'PM' : 'AM';
+    this.calHour = h24 % 12 || 12;
+    this.calMinute = safeDate.getMinutes();
+  }
+
+  closeDatePicker(): void {
+    this.activeDatePicker = null;
+  }
+
+  prevCalMonth(): void {
+    if (this.calMonth === 0) {
+      this.calMonth = 11;
+      this.calYear--;
+    } else {
+      this.calMonth--;
+    }
+  }
+
+  nextCalMonth(): void {
+    if (this.calMonth === 11) {
+      this.calMonth = 0;
+      this.calYear++;
+    } else {
+      this.calMonth++;
+    }
+  }
+
+  selectCalDay(day: number | null): void {
+    if (!day) return;
+    this.calSelectedDay = day;
+  }
+
+  setCalHour(h: number): void {
+    this.calHour = Math.max(1, Math.min(12, h));
+  }
+
+  stepCalHour(delta: number): void {
+    let next = this.calHour + delta;
+    if (next > 12) next = 1;
+    if (next < 1) next = 12;
+    this.calHour = next;
+  }
+
+  setCalMinute(m: number): void {
+    this.calMinute = Math.max(0, Math.min(59, m));
+  }
+
+  stepCalMinute(delta: number): void {
+    let next = this.calMinute + delta;
+    if (next >= 60) next = 0;
+    if (next < 0) next = 55;
+    this.calMinute = next;
+  }
+
+  toggleCalAmpm(ampm: 'AM' | 'PM'): void {
+    this.calAmpm = ampm;
+  }
+
+  get calPreviewFormatted(): string {
+    let h24 = this.calHour % 12;
+    if (this.calAmpm === 'PM') h24 += 12;
+    const d = new Date(this.calYear, this.calMonth, this.calSelectedDay, h24, this.calMinute, 0);
+    return isNaN(d.getTime()) ? '' : this.formatDisplayDate(this.formatDateTimeForInput(d));
+  }
+
+  applyCalDateTime(): void {
+    if (!this.activeDatePicker) return;
+    
+    let h24 = this.calHour % 12;
+    if (this.calAmpm === 'PM') h24 += 12;
+    
+    const d = new Date(this.calYear, this.calMonth, this.calSelectedDay, h24, this.calMinute, 0);
+    const formatted = this.formatDateTimeForInput(d);
+
+    const pickerType = this.activeDatePicker;
+    if (pickerType === 'entry') {
+      this.currentTrade.entry_date = formatted;
+      this.onTradeDateChange();
+    } else {
+      this.currentTrade.exit_date = formatted;
+      this.autoCalculatePnL();
+    }
+
+    this.activeDatePicker = null;
+    this.toastService.success(`Fecha de ${pickerType === 'entry' ? 'entrada' : 'cierre'} actualizada.`);
+  }
+
+  applyTraderPreset(preset: string): void {
+    const now = new Date();
+    let target = new Date();
+
+    if (preset === 'now') {
+      target = now;
+    } else if (preset === '-15m') {
+      target = new Date(now.getTime() - (15 * 60 * 1000));
+    } else if (preset === '-1h') {
+      target = new Date(now.getTime() - (60 * 60 * 1000));
+    } else if (preset === '-4h') {
+      target = new Date(now.getTime() - (4 * 60 * 60 * 1000));
+    } else if (preset === 'yesterday') {
+      target = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+    } else if (preset === 'ny_open') {
+      target.setHours(9, 30, 0, 0);
+    } else if (preset === 'london_open') {
+      target.setHours(3, 0, 0, 0);
+    } else if (preset === '+5m' && this.currentTrade?.entry_date) {
+      const entry = new Date(this.currentTrade.entry_date);
+      target = new Date(entry.getTime() + (5 * 60 * 1000));
+    } else if (preset === '+15m' && this.currentTrade?.entry_date) {
+      const entry = new Date(this.currentTrade.entry_date);
+      target = new Date(entry.getTime() + (15 * 60 * 1000));
+    } else if (preset === '+30m' && this.currentTrade?.entry_date) {
+      const entry = new Date(this.currentTrade.entry_date);
+      target = new Date(entry.getTime() + (30 * 60 * 1000));
+    } else if (preset === '+1h' && this.currentTrade?.entry_date) {
+      const entry = new Date(this.currentTrade.entry_date);
+      target = new Date(entry.getTime() + (60 * 60 * 1000));
+    } else if (preset === '+4h' && this.currentTrade?.entry_date) {
+      const entry = new Date(this.currentTrade.entry_date);
+      target = new Date(entry.getTime() + (4 * 60 * 60 * 1000));
+    }
+
+    this.calYear = target.getFullYear();
+    this.calMonth = target.getMonth();
+    this.calSelectedDay = target.getDate();
+    const h24 = target.getHours();
+    this.calAmpm = h24 >= 12 ? 'PM' : 'AM';
+    this.calHour = h24 % 12 || 12;
+    this.calMinute = target.getMinutes();
+  }
+
+  formatDisplayDate(dateStr?: string | null): string {
+    if (!dateStr) return 'No definida';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Fecha no seleccionada';
+
+    const day = d.getDate();
+    const month = this.monthNames[d.getMonth()]?.substring(0, 3) || '';
+    const year = d.getFullYear();
+    let h = d.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const m = d.getMinutes() < 10 ? '0' + d.getMinutes() : d.getMinutes();
+
+    return `${day} ${month} ${year}, ${h}:${m} ${ampm}`;
+  }
+
+  getDateBadge(dateStr?: string | null): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    
+    const now = new Date();
+    const isToday = now.toDateString() === d.toDateString();
+    if (isToday) return 'Hoy';
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (yesterday.toDateString() === d.toDateString()) return 'Ayer';
+
+    const diffDays = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) return `Hace ${diffDays}d`;
+    if (diffDays < 0) return `En ${Math.abs(diffDays)}d`;
+    return '';
+  }
+
   setCurrentEntryDate(): void {
     this.currentTrade.entry_date = this.formatDateTimeForInput(new Date());
     this.onTradeDateChange();
@@ -587,6 +814,7 @@ export class BitacoraComponent implements OnInit {
 
   setCurrentExitDate(): void {
     this.currentTrade.exit_date = this.formatDateTimeForInput(new Date());
+    this.autoCalculatePnL();
   }
 
   onTradeDateChange(): void {
@@ -595,94 +823,24 @@ export class BitacoraComponent implements OnInit {
     }
   }
 
-  toggleChartOverlay(): void {
-    this.showChartOverlay = !this.showChartOverlay;
-  }
-
-  toggleOverlayMode(): void {
-    this.chartOverlayMode = this.chartOverlayMode === 'position' ? 'lines' : 'position';
-  }
-
-  get hasChartLevels(): boolean {
-    return (this.currentTrade?.entry_price != null && this.currentTrade?.entry_price !== '') ||
-           (this.currentTrade?.exit_price != null && this.currentTrade?.exit_price !== '') ||
-           (this.currentTrade?.stop_loss != null && this.currentTrade?.stop_loss !== '') ||
-           (this.currentTrade?.take_profit != null && this.currentTrade?.take_profit !== '');
-  }
-
-  get activePriceLevels(): { entry: number | null, exit: number | null, sl: number | null, tp: number | null } {
-    const parse = (v: any) => (v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : null;
-    return {
-      entry: parse(this.currentTrade?.entry_price),
-      exit: parse(this.currentTrade?.exit_price),
-      sl: parse(this.currentTrade?.stop_loss),
-      tp: parse(this.currentTrade?.take_profit)
-    };
-  }
-
-  get priceScaleSpan(): { min: number, max: number, span: number } {
-    const levels = this.activePriceLevels;
-    const nums: number[] = [levels.entry, levels.exit, levels.sl, levels.tp].filter(n => n !== null) as number[];
-    if (nums.length === 0) return { min: 0, max: 100, span: 100 };
-    if (nums.length === 1) {
-      const single = nums[0];
-      const delta = (single !== 0 ? Math.abs(single) * 0.01 : 1) || 1;
-      return { min: single - delta, max: single + delta, span: delta * 2 };
+  copyTradeDateToClipboard(): void {
+    if (!this.currentTrade?.entry_date) return;
+    const d = new Date(this.currentTrade.entry_date);
+    if (isNaN(d.getTime())) return;
+    const pad = (n: number) => n < 10 ? '0' + n : n;
+    const str = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(str).then(() => {
+        this.toastService.info(`Fecha copiada: ${str}. En el gráfico presiona Alt+G para saltar a esta fecha.`);
+      }).catch(() => {
+        this.toastService.info(`Fecha del trade: ${str}`);
+      });
+    } else {
+      this.toastService.info(`Fecha del trade: ${str}`);
     }
-    const rawMin = Math.min(...nums);
-    const rawMax = Math.max(...nums);
-    const rawDiff = rawMax - rawMin || (Math.abs(rawMax) * 0.01) || 1;
-    // 16% de margen superior e inferior para evitar que las líneas toquen los bordes exactos
-    const padding = rawDiff * 0.16;
-    const min = rawMin - padding;
-    const max = rawMax + padding;
-    return { min, max, span: Math.max(0.00000001, max - min) };
   }
 
-  getPricePercentFromTop(price: number | null | undefined): number {
-    if (price === null || price === undefined || isNaN(price)) return 50;
-    const scale = this.priceScaleSpan;
-    if (scale.span <= 0) return 50;
-    const p = Math.max(scale.min, Math.min(scale.max, price));
-    const percent = ((scale.max - p) / scale.span) * 100;
-    return parseFloat(percent.toFixed(2));
-  }
 
-  get targetZoneStyles(): { top: string, height: string } | null {
-    const levels = this.activePriceLevels;
-    if (levels.entry === null || levels.tp === null) return null;
-    const entryY = this.getPricePercentFromTop(levels.entry);
-    const tpY = this.getPricePercentFromTop(levels.tp);
-    const top = Math.min(entryY, tpY);
-    const height = Math.abs(entryY - tpY);
-    return {
-      top: `${top.toFixed(2)}%`,
-      height: `${Math.max(1.5, height).toFixed(2)}%`
-    };
-  }
-
-  get stopLossZoneStyles(): { top: string, height: string } | null {
-    const levels = this.activePriceLevels;
-    if (levels.entry === null || levels.sl === null) return null;
-    const entryY = this.getPricePercentFromTop(levels.entry);
-    const slY = this.getPricePercentFromTop(levels.sl);
-    const top = Math.min(entryY, slY);
-    const height = Math.abs(entryY - slY);
-    return {
-      top: `${top.toFixed(2)}%`,
-      height: `${Math.max(1.5, height).toFixed(2)}%`
-    };
-  }
-
-  get riskRewardRatio(): string | null {
-    const levels = this.activePriceLevels;
-    if (levels.entry === null || levels.sl === null || levels.tp === null) return null;
-    const risk = Math.abs(levels.entry - levels.sl);
-    const reward = Math.abs(levels.tp - levels.entry);
-    if (risk <= 0.000000001) return null;
-    const ratio = reward / risk;
-    return `1 : ${ratio.toFixed(2)}`;
-  }
 
   getPipsOrPointsDiff(p1: number | null, p2: number | null): string {
     if (p1 === null || p2 === null) return '';
@@ -743,7 +901,7 @@ export class BitacoraComponent implements OnInit {
   analyzeEmotions(): void {
     if (!this.selectedAccountId) return;
     this.isAnalyzingPsychology = true;
-    this.toastService.info('📊 Analizando perfil conductual y sesgos de la cuenta...');
+    this.toastService.info('Analizando perfil conductual y sesgos de la cuenta...');
 
     this.tradeService.getPsychologicalAnalysis(this.selectedAccountId, true).subscribe({
       next: (res) => {
@@ -775,7 +933,7 @@ export class BitacoraComponent implements OnInit {
         totalTrades: 0,
         archetype: {
           title: 'Estratega Disciplinado',
-          emoji: '⛩️',
+          emoji: '',
           subtitle: 'Disciplina inicial intacta (100% de cumplimiento)',
           description: 'Tu cuenta arranca con una hoja en blanco y 100% de disciplina mental. Tu capital está blindado y tus reglas listas para ejecutar. Mantén este estándar impecable colocando Stop Loss técnico y respetando el riesgo por operación desde tu primer trade.'
         },
@@ -808,9 +966,9 @@ export class BitacoraComponent implements OnInit {
           potentialSavings: 0
         },
         prescriptions: [
-          '⛩️ <strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
-          '🛡️ <strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
-          '🧘 <strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
+          '<strong>Disciplina Inicial al 100%:</strong> Inicias con el índice de disciplina perfecto. Tu objetivo profesional es protegerlo trade a trade.',
+          '<strong>Regla del Stop Loss Técnico:</strong> Toda orden debe ingresar al mercado con su nivel de invalidación definido previamente.',
+          '<strong>Aceptación Probabilística:</strong> Evalúa tu jornada por el porcentaje de disciplina operativa, no por el dinero diario.'
         ],
         aiSummary: 'Bienvenido al <strong>Auditor de Psicología Operativa</strong>. Tu cuenta arranca con un índice de disciplina mental del <strong>100/100</strong> y $0.00 de fuga de capital. Tu ventaja estadística se forja respetando tu plan desde la primera operación.'
       };
@@ -915,46 +1073,46 @@ export class BitacoraComponent implements OnInit {
 
     let archetype = {
       title: 'Operador Metódico en Desarrollo',
-      emoji: '🧘',
+      emoji: '',
       subtitle: 'Trading estructurado con margen de optimización',
       description: 'Muestras una base sólida de reglas y control de riesgo, con buena resiliencia mental general.'
     };
 
     if (isSuperPositive) {
       archetype = {
-        title: 'El Francotirador de Alta Precisión',
-        emoji: '🎯',
+        title: 'Estratega de Alta Precisión',
+        emoji: '',
         subtitle: `Alta ventaja estadística institucional (${winRate.toFixed(0)}% Win Rate)`,
-        description: `Muestras una lectura de mercado quirúrgica con balance neto de +$${netPnL.toFixed(2)} USD. ` +
+        description: `Muestras una lectura de mercado técnica con balance neto de +$${netPnL.toFixed(2)} USD. ` +
           (losingTrades <= 1 
             ? `Tu única pérdida es simplemente varianza estadística normal y controlada por tu Stop Loss.` 
             : `Tus pérdidas están rigurosamente contenidas dentro de tu plan de riesgo.`)
       };
     } else if (revengeCount >= 2 && revengeLoss > 0) {
       archetype = {
-        title: 'El Gladiador Reactivo',
-        emoji: '⚔️',
+        title: 'Operador Reactivo',
+        emoji: '',
         subtitle: 'Vulnerable a buscar revancha rápida tras una pérdida',
         description: 'La frustración post-pérdida nubla tu criterio temporalmente. Tiendes a entrar deprisa intentando recuperar el capital.'
       };
     } else if (fomoCount >= Math.max(2, totalTrades * 0.4) || (slSetCount < totalTrades * 0.6)) {
       archetype = {
-        title: 'El Cazador Impulsivo',
-        emoji: '🦅',
+        title: 'Operador Impulsivo',
+        emoji: '',
         subtitle: 'Propenso al miedo a quedarse fuera de los movimientos (FOMO / Sin SL)',
         description: 'Tu velocidad de entrada es alta, pero te precipitas sin esperar confluencias o descuidando el Stop Loss por ansiedad.'
       };
     } else if (!isSuperPositive && dispositionRatio < 0.7 && lossAmounts.length >= 3 && netPnL < 0) {
       archetype = {
-        title: 'El Protector Cauteloso',
-        emoji: '🛡️',
+        title: 'Operador Cauteloso',
+        emoji: '',
         subtitle: 'Corta ganancias antes de tiempo por miedo a perder',
         description: 'Te cuesta dejar correr los beneficios hasta el Take Profit, conformándote con pequeñas ganancias mientras asumes el Stop Loss completo.'
       };
     } else if (disciplineScore >= 80) {
       archetype = {
-        title: 'El Estratega Zen',
-        emoji: '⛩️',
+        title: 'Estratega Disciplinado',
+        emoji: '',
         subtitle: 'Operador disciplinado con enfoque en proceso',
         description: 'Demuestras serenidad ante las fluctuaciones del mercado y mantienes tu plan de gestión de riesgo bajo control.'
       };
@@ -992,15 +1150,15 @@ export class BitacoraComponent implements OnInit {
 
     const prescriptions = [];
     if (isSuperPositive) {
-      prescriptions.push(`🎯 <strong>Edge Estadístico Comprobado:</strong> Tu sistema genera valor (+${netPnL.toFixed(2)} USD). La consistencia reside en no modificar las reglas cuando ganas.`);
+      prescriptions.push(`<strong>Edge Estadístico Comprobado:</strong> Tu sistema genera valor (+${netPnL.toFixed(2)} USD). La consistencia reside en no modificar las reglas cuando ganas.`);
       prescriptions.push(losingTrades <= 1 
-        ? '🧘 <strong>Pérdidas como Costo Operativo:</strong> Tu pérdida individual es matemáticamente normal. En el trading profesional, tener un 10-25% de pérdidas es un estándar de élite institucional.'
-        : '🛡️ <strong>Preservación de Ganancias:</strong> Protege tus beneficios acumulados manteniendo el riesgo strictly &le; 2% por trade.');
-      prescriptions.push('⛩️ <strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa. El dinero es la consecuencia natural de la maestría mental.');
+        ? '<strong>Pérdidas como Costo Operativo:</strong> Tu pérdida individual es matemáticamente normal. En el trading profesional, tener un 10-25% de pérdidas es un estándar de élite institucional.'
+        : '<strong>Preservación de Ganancias:</strong> Protege tus beneficios acumulados manteniendo el riesgo strictly &le; 2% por trade.');
+      prescriptions.push('<strong>Enfoque en Proceso:</strong> Evalúa tu sesión por tu porcentaje de disciplina operativa. El dinero es la consecuencia natural de la maestría mental.');
     } else {
-      if (revengeCount > 0) prescriptions.push('🛡️ <strong>Regla del Enfriamiento:</strong> No abras una nueva operación en los 20 minutos posteriores a una pérdida.');
-      if (fomoCount > 0) prescriptions.push('📐 <strong>Filtro de Confluencias:</strong> Marca al menos 2 motivos técnicos en el checklist antes de entrar.');
-      prescriptions.push('🧘 <strong>Aceptación Probabilística:</strong> Cada trade individual es solo una muestra estadística de tu estrategia a largo plazo.');
+      if (revengeCount > 0) prescriptions.push('<strong>Regla del Enfriamiento:</strong> No abras una nueva operación en los 20 minutos posteriores a una pérdida.');
+      if (fomoCount > 0) prescriptions.push('<strong>Filtro de Confluencias:</strong> Marca al menos 2 motivos técnicos en el checklist antes de entrar.');
+      prescriptions.push('<strong>Aceptación Probabilística:</strong> Cada trade individual es solo una muestra estadística de tu estrategia a largo plazo.');
     }
 
     let summaryText = '';
@@ -1052,7 +1210,7 @@ export class BitacoraComponent implements OnInit {
         this.isDetectingEmotion = false;
         if (res && res.emotion) {
           this.currentTrade.emotion_state = res.emotion;
-          this.detectedEmotionFeedback = `✨ Contexto (${res.confidence}% certeza): ${res.reason}`;
+          this.detectedEmotionFeedback = `Contexto (${res.confidence}% certeza): ${res.reason}`;
           this.toastService.info(`Emoción detectada: ${res.emotion}`);
         }
       },
@@ -1089,7 +1247,7 @@ export class BitacoraComponent implements OnInit {
     }
 
     this.currentTrade.emotion_state = detected;
-    this.detectedEmotionFeedback = `✨ Análisis Heurístico: ${reason}`;
+    this.detectedEmotionFeedback = `Análisis Heurístico: ${reason}`;
     this.toastService.info(`Emoción detectada: ${detected}`);
   }
   
@@ -1154,6 +1312,7 @@ export class BitacoraComponent implements OnInit {
 
     // [Esc]: Cerrar modales activos
     if (event.key === 'Escape') {
+      if (this.activeDatePicker) { this.activeDatePicker = null; return; }
       if (this.activeScreenshotModal) { this.activeScreenshotModal = null; return; }
       if (this.showCsvModal) { this.showCsvModal = false; return; }
       if (this.showForm) { this.showForm = false; return; }
@@ -1324,7 +1483,7 @@ export class BitacoraComponent implements OnInit {
       next: (res) => {
         this.isImportingCsv = false;
         this.showCsvModal = false;
-        this.toastService.success(`🚀 ${res.count || this.parsedCsvTrades.length} operaciones importadas con éxito.`);
+        this.toastService.success(`${res.count || this.parsedCsvTrades.length} operaciones importadas con éxito.`);
         this.loadTrades();
       },
       error: (err) => {
@@ -1338,7 +1497,7 @@ export class BitacoraComponent implements OnInit {
   // --- INFORMES EJECUTIVOS REALES (PDF & EXCEL XLSX) ---
   exportPdfReport(): void {
     if (!this.selectedAccount) return;
-    this.toastService.info('📄 Generando informe ejecutivo formal en PDF con jsPDF...');
+    this.toastService.info('Generando informe ejecutivo formal en PDF con jsPDF...');
     this.tradeService.getQuantitativeAnalysis(this.selectedAccountId!).subscribe({
       next: (quantData) => {
         this.tradeService.getPsychologicalAnalysis(this.selectedAccountId!).subscribe({
@@ -1358,7 +1517,7 @@ export class BitacoraComponent implements OnInit {
               psychology: psychData,
               trades: this.trades
             });
-            this.toastService.success('✅ Informe ejecutivo PDF descargado correctamente.');
+            this.toastService.success('Informe ejecutivo PDF descargado correctamente.');
           },
           error: () => this.toastService.error('Error al compilar auditoría psicológica para PDF.')
         });
@@ -1369,7 +1528,7 @@ export class BitacoraComponent implements OnInit {
 
   exportExcelReport(): void {
     if (!this.selectedAccount) return;
-    this.toastService.info('📊 Generando libro de cálculo estructurado en Excel (.xlsx)...');
+    this.toastService.info('Generando libro de cálculo estructurado en Excel (.xlsx)...');
     this.tradeService.getQuantitativeAnalysis(this.selectedAccountId!).subscribe({
       next: (quantData) => {
         this.tradeService.getPsychologicalAnalysis(this.selectedAccountId!).subscribe({
@@ -1389,7 +1548,7 @@ export class BitacoraComponent implements OnInit {
               psychology: psychData,
               trades: this.trades
             });
-            this.toastService.success('✅ Archivo Excel descargado con éxito.');
+            this.toastService.success('Archivo Excel descargado con éxito.');
           },
           error: () => this.toastService.error('Error al generar Excel.')
         });
@@ -1579,8 +1738,8 @@ export class BitacoraComponent implements OnInit {
       status: 'Abierta',
       asset: defaults[market] || '',
       duration: market === 'Binarias' ? '1 min' : null,
-      trading_style: null,
-      instrument_type: null,
+      trading_style: (market !== 'Binarias' && market !== 'Acciones') ? (this.tradingStyles[0] || 'Day Trading') : null,
+      instrument_type: market === 'Acciones' ? (this.instrumentTypes[0] || 'Acciones Contado') : null,
       stop_loss: null,
       take_profit: null,
       risk_percentage: 1, // Riesgo del 1% por defecto
@@ -1606,10 +1765,10 @@ export class BitacoraComponent implements OnInit {
     // Al cambiar de mercado, ponemos un activo por defecto
     this.currentTrade.asset = defaults[this.currentTrade.market_type] || '';
     
-    // Reseteamos también los campos condicionales
+    // Reseteamos también los campos condicionales con valores por defecto
     this.currentTrade.duration = this.currentTrade.market_type === 'Binarias' ? '1 min' : null;
-    this.currentTrade.trading_style = null;
-    this.currentTrade.instrument_type = null;
+    this.currentTrade.trading_style = (this.currentTrade.market_type !== 'Binarias' && this.currentTrade.market_type !== 'Acciones') ? (this.tradingStyles[0] || 'Day Trading') : null;
+    this.currentTrade.instrument_type = this.currentTrade.market_type === 'Acciones' ? (this.instrumentTypes[0] || 'Acciones Contado') : null;
     this.showDropdown = false;
 
     if (this.currentTrade.market_type === 'Binarias') {
@@ -1730,7 +1889,7 @@ export class BitacoraComponent implements OnInit {
         this.onRiskOrPriceChange();
         if (isManualClick) {
           const fieldLabel = targetField === 'entry_price' ? 'Entrada' : 'Salida';
-          this.toastService.success(`⚡ Precio de ${fieldLabel} actualizado: $${currentPrice}`);
+          this.toastService.success(`Precio de ${fieldLabel} actualizado: $${currentPrice}`);
         }
       } else {
         if (isManualClick) {
@@ -1862,24 +2021,35 @@ export class BitacoraComponent implements OnInit {
 
       const tvSymbol = this.formatSymbolForTV(asset, this.currentTrade.market_type);
       
-      // Determinar rango e intervalo dinámico si es una operación pasada
+      // Determinar rango e intervalo dinámico según la fecha exacta de la operación
       let chartRange: string | undefined = undefined;
       let chartInterval = "15";
       if (this.currentTrade?.entry_date) {
         const tradeTime = new Date(this.currentTrade.entry_date).getTime();
-        const daysAgo = Math.max(0, (Date.now() - tradeTime) / (1000 * 60 * 60 * 24));
-        if (daysAgo > 60) {
-          chartRange = "6M";
-          chartInterval = "D";
-        } else if (daysAgo > 25) {
-          chartRange = "1M";
-          chartInterval = "60";
-        } else if (daysAgo > 7) {
-          chartRange = "1M";
-          chartInterval = "30";
-        } else if (daysAgo > 1) {
-          chartRange = "5D";
-          chartInterval = "15";
+        if (!isNaN(tradeTime)) {
+          const daysAgo = Math.max(0, (Date.now() - tradeTime) / (1000 * 60 * 60 * 24));
+          if (daysAgo > 365) {
+            chartRange = "ALL";
+            chartInterval = "D";
+          } else if (daysAgo > 180) {
+            chartRange = "12M";
+            chartInterval = "D";
+          } else if (daysAgo > 90) {
+            chartRange = "6M";
+            chartInterval = "240";
+          } else if (daysAgo > 30) {
+            chartRange = "3M";
+            chartInterval = "60";
+          } else if (daysAgo > 7) {
+            chartRange = "1M";
+            chartInterval = "30";
+          } else if (daysAgo > 1) {
+            chartRange = "5D";
+            chartInterval = "15";
+          } else {
+            chartRange = "1D";
+            chartInterval = "5";
+          }
         }
       }
 
@@ -1963,22 +2133,37 @@ export class BitacoraComponent implements OnInit {
     this.showForm = true;
     this.renderChart(this.currentTrade.asset);
     this.fetchCurrentPrice(this.currentTrade.asset, this.currentTrade.market_type, 'entry_price', false);
+    setTimeout(() => {
+      document.getElementById('tradeFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   }
 
   openEditForm(trade: any): void {
     this.isEditing = true;
     this.currentTrade = { ...trade };
-    this.currentTrade.entry_date = this.formatDateTimeForInput(trade.entry_date || trade.createdAt);
+    this.currentTrade.entry_date = this.formatDateTimeForInput(trade.entry_date || trade.createdAt) || this.formatDateTimeForInput(new Date());
     this.currentTrade.exit_date = this.formatDateTimeForInput(trade.exit_date);
+    if (!this.currentTrade.trading_style && this.tradingStyles.length > 0) {
+      this.currentTrade.trading_style = this.tradingStyles[0];
+    }
+    if (!this.currentTrade.instrument_type && this.instrumentTypes.length > 0) {
+      this.currentTrade.instrument_type = this.instrumentTypes[0];
+    }
     if (this.currentTrade.market_type === 'Binarias') {
       if (!this.currentTrade.payout_percentage) {
         this.currentTrade.payout_percentage = 85;
+      }
+      if (!this.currentTrade.duration && this.durations.length > 0) {
+        this.currentTrade.duration = this.durations[0];
       }
       this.currentTrade.stop_loss = null;
       this.currentTrade.take_profit = null;
     }
     this.showForm = true;
     this.renderChart(this.currentTrade.asset);
+    setTimeout(() => {
+      document.getElementById('tradeFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   }
 
   cancelForm(): void {
@@ -2138,6 +2323,9 @@ export class BitacoraComponent implements OnInit {
       if (!this.currentTrade.volume || this.currentTrade.volume <= 0) {
         this.currentTrade.volume = 1.0;
       }
+    }
+    if (this.currentTrade.entry_price != null && this.currentTrade.exit_price != null) {
+      this.autoCalculatePnL();
     }
     if (this.isEditing) {
       this.tradeService.updateTrade(this.currentTrade.id_trade, this.currentTrade).subscribe({

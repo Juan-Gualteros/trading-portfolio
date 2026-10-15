@@ -154,7 +154,7 @@
         </div>
         <select class="form-control setting-select" [(ngModel)]="defaultAccountId" (change)="onDefaultAccountChange($event)">
           <option *ngFor="let acc of accounts" [value]="acc.id_account">
-            {{ acc.name }} ({{ acc.market_type }}){{ acc.is_default ? ' ★ [Principal Actual]' : '' }}
+            {{ acc.name }} ({{ acc.market_type }}){{ acc.is_default ? ' [Principal Actual]' : '' }}
           </option>
         </select>
       </div>

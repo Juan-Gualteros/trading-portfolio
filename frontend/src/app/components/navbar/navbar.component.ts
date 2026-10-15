@@ -49,13 +49,10 @@ export class NavbarComponent implements OnInit {
     this.authService.isAuthenticated$.subscribe(auth => {
       this.isLoggedIn = auth;
       if (auth) {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          try {
-            const user = JSON.parse(userStr);
-            this.username = user.username || 'Trader';
-            this.userEmail = user.email || '';
-          } catch(e) {}
+        const user = this.authService.getCurrentUser();
+        if (user) {
+          this.username = user.username || 'Trader';
+          this.userEmail = user.email || '';
         }
         this.loadNavbarAccounts();
       }

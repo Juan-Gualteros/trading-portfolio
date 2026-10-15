@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const TradingAccount = require('../models/TradingAccount'); // Importar para crear la cuenta por defecto
+const { SERVER_BOOT_ID } = require('../utils/serverInstance');
+const { verifyRecaptcha } = require('../utils/recaptchaValidator');
 
 let transporter;
 async function initTransporter() {
@@ -87,7 +89,20 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, recaptcha_token, hp_check, client_metrics } = req.body;
+
+    // Validación de reCAPTCHA Invisible / Antibot
+    const captchaResult = await verifyRecaptcha(recaptcha_token, {
+      hp_check,
+      client_metrics,
+      ip: req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress
+    });
+
+    if (!captchaResult.success) {
+      return res.status(400).json({ 
+        message: captchaResult.message || 'Verificación de seguridad reCAPTCHA fallida. Intenta nuevamente.' 
+      });
+    }
 
     // Check if user exists by username or email
     const user = await User.findOne({
@@ -114,10 +129,11 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Credenciales inválidas' });
     }
 
-    // Create JWT
+    // Create JWT con el bootId de la instancia actual del servidor
     const payload = {
       id: user.id,
-      username: user.username
+      username: user.username,
+      bootId: SERVER_BOOT_ID
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret_key', { expiresIn: '1d' });
