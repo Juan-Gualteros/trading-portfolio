@@ -12,11 +12,11 @@
       <h3>Información General</h3>
       
       <div *ngIf="profileSuccess" class="alert text-success" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border-radius: 6px; border: 1px solid rgba(16,185,129,0.2);">
-        ✓ {{ profileSuccess }}
+        {{ profileSuccess }}
       </div>
       <div *ngIf="profileError" class="alert text-danger" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.2); display: flex; justify-content: space-between; align-items: center;">
-        <span>⚠️ {{ profileError }}</span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadProfile()" style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer;">🔄 Reintentar</button>
+        <span>{{ profileError }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadProfile()" style="padding: 2px 10px; font-size: 0.8rem; cursor: pointer;">Reintentar</button>
       </div>
 
       <form (ngSubmit)="onUpdateProfile()">
@@ -51,10 +51,10 @@
       <h3>Seguridad</h3>
       
       <div *ngIf="passwordSuccess" class="alert text-success" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border-radius: 6px; border: 1px solid rgba(16,185,129,0.2);">
-        ✓ {{ passwordSuccess }}
+        {{ passwordSuccess }}
       </div>
       <div *ngIf="passwordError" class="alert text-danger" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.2);">
-        ⚠️ {{ passwordError }}
+        {{ passwordError }}
       </div>
 
       <form (ngSubmit)="onChangePassword()">

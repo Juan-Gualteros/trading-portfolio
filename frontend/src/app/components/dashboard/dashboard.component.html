@@ -5,14 +5,23 @@
   </div>
   
   <div class="header-actions" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-    <button class="btn btn-secondary" (click)="printReport()" title="Imprimir informe ejecutivo o guardar en PDF">
-      🖨️ Informe PDF
+    <button class="btn btn-secondary" (click)="exportPdfReport()" title="Descargar informe formal ejecutivo en PDF de la cuenta" style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+      Informe PDF
+    </button>
+    <button class="btn btn-secondary" (click)="exportExcelReport()" title="Descargar libro de cálculo estructurado en Excel (.xlsx)" style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+      Exportar Excel
+    </button>
+    <button class="btn btn-secondary" (click)="openPrintModal()" title="Abrir Ficha Ejecutiva Imprimible" style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+      Ficha Imprimible
     </button>
     <div class="account-selector" *ngIf="accounts.length > 0">
       <label>Cuenta de Trading:</label>
       <select class="form-control form-control-sm" [(ngModel)]="selectedAccountId" (change)="onAccountChange($event)">
         <option *ngFor="let acc of accounts" [value]="acc.id_account">
-          {{ acc.name || acc.account_name }} ({{ acc.market_type }})
+          {{ acc.name || acc.account_name }} ({{ acc.market_type }}){{ acc.is_default ? ' [Principal]' : '' }}
         </option>
       </select>
     </div>
@@ -25,48 +34,80 @@
 <div *ngIf="!isLoading && selectedAccount">
   
   <!-- Resumen Ejecutivo de la Cuenta Activa -->
-  <div class="account-summary-strip card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.75rem; padding: 1.1rem 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
-    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-      <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(37, 99, 235, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
-        💼
+  <div class="account-summary-strip card">
+    <!-- Lado Izquierdo: Identidad de Cuenta y Configuración -->
+    <div class="account-strip-left">
+      <div class="account-strip-avatar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
       </div>
       <div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <h4 style="margin: 0; font-size: 1.15rem; color: #fff; font-weight: 700;">{{ selectedAccount.name }}</h4>
-          <span style="font-size: 0.75rem; background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+        <div class="account-strip-title-row">
+          <h4 class="account-strip-name">{{ selectedAccount.name }}</h4>
+          <span class="account-market-badge">
             Mercado: {{ selectedAccount.market_type }}
           </span>
+          <span *ngIf="selectedAccount.is_default" class="account-default-badge" title="Esta es tu cuenta principal predeterminada">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Cuenta Principal
+          </span>
+          <button *ngIf="!selectedAccount.is_default" class="btn btn-secondary btn-sm" (click)="setAsDefaultAccount(selectedAccount)" style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);" title="Establecer esta cuenta como la principal al iniciar la plataforma">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Marcar como Principal
+          </button>
+          <button class="btn btn-secondary btn-sm" (click)="openAccountForm(true)" style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px;" title="Editar nombre, mercado o saldo de la cuenta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Editar Cuenta
+          </button>
         </div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
-          Balance Inicial: <strong style="color: #cbd5e1;">${{ metrics.initialCapital | number:'1.2-2' }} USD</strong>
-          <span style="margin: 0 8px;">•</span>
-          Historial Total: <strong style="color: #cbd5e1;">{{ allTrades.length }} operaciones</strong>
-          <span *ngIf="allTrades.length !== filteredTrades.length" style="color: #38bdf8;"> ({{ filteredTrades.length }} bajo filtro actual)</span>
+        <div class="account-strip-meta">
+          <span>Balance Inicial: <strong>{{ isPrivacyMode ? '$••••••' : ('$' + (metrics.initialCapital | number:'1.2-2') + ' USD') }}</strong></span>
+          <span class="meta-dot">•</span>
+          <span>Capital Actual: <strong>{{ isPrivacyMode ? '$••••••' : ('$' + (metrics.currentCapital | number:'1.2-2') + ' USD') }}</strong></span>
+          <span class="meta-dot">•</span>
+          <span>Historial Total: <strong>{{ allTrades.length }} operaciones</strong></span>
+          <span *ngIf="allTrades.length !== filteredTrades.length" style="color: #38bdf8;"> ({{ filteredTrades.length }} bajo filtro)</span>
         </div>
       </div>
     </div>
 
-    <!-- Desglose Rápido de Operaciones y ROI -->
-    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-      <div style="text-align: right;">
-        <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Estatus de Operaciones</span>
-        <div style="display: flex; gap: 6px; margin-top: 3px;">
-          <span style="font-size: 0.82rem; font-weight: 600; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);">
-            {{ metrics.winningCount }} Ganadas
-          </span>
-          <span style="font-size: 0.82rem; font-weight: 600; color: #ef4444; background: rgba(239, 68, 68, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25);">
-            {{ metrics.losingCount }} Perdidas
-          </span>
-          <span *ngIf="metrics.openCount > 0" style="font-size: 0.82rem; font-weight: 600; color: #3b82f6; background: rgba(59, 130, 246, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.25);">
-            {{ metrics.openCount }} Abiertas
-          </span>
+    <!-- Lado Derecho: Bloques Ejecutivos de Rendimiento en Tiempo Real -->
+    <div class="account-strip-right">
+      <!-- 1. Estatus Operativo -->
+      <div class="account-kpi-block">
+        <span class="kpi-label">Estatus de Operaciones</span>
+        <div class="status-pills-row">
+          <span class="badge-win" title="Operaciones Ganadas">{{ metrics.winningCount }} Ganadas</span>
+          <span class="badge-loss" title="Operaciones Perdidas">{{ metrics.losingCount }} Perdidas</span>
+          <span *ngIf="metrics.openCount > 0" class="badge-open" title="Operaciones Abiertas">{{ metrics.openCount }} Abiertas</span>
         </div>
       </div>
 
-      <div style="padding-left: 1.25rem; border-left: 1px solid rgba(255, 255, 255, 0.1); text-align: right;">
-        <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Rendimiento de Cuenta (ROI)</span>
-        <div style="font-size: 1.2rem; font-weight: 700; margin-top: 2px;" [ngClass]="metrics.totalPnL >= 0 ? 'text-success' : 'text-danger'">
+      <!-- 2. Beneficio Neto (PnL) -->
+      <div class="account-kpi-block bordered">
+        <span class="kpi-label">Beneficio Neto (PnL)</span>
+        <div class="kpi-val-pnl" [ngClass]="metrics.totalPnL >= 0 ? 'text-success' : 'text-danger'">
+          {{ isPrivacyMode ? '$••••••' : ((metrics.totalPnL >= 0 ? '+' : '') + '$' + (metrics.totalPnL | number:'1.2-2')) }}
+        </div>
+      </div>
+
+      <!-- 3. Rendimiento ROI -->
+      <div class="account-kpi-block bordered">
+        <span class="kpi-label">Rendimiento (ROI)</span>
+        <div class="kpi-val-roi" [ngClass]="metrics.totalPnL >= 0 ? 'roi-positive' : 'roi-negative'">
           {{ metrics.totalPnL >= 0 ? '+' : '' }}{{ metrics.roiPercentage }}%
+        </div>
+      </div>
+
+      <!-- 4. Tasa de Acierto / Profit Factor -->
+      <div class="account-kpi-block bordered">
+        <span class="kpi-label">Win Rate & Factor</span>
+        <div class="kpi-val-stats font-mono">
+          <span style="color: #38bdf8; font-weight: 700;">{{ metrics.winRate }}%</span>
+          <span class="meta-dot" style="margin: 0 4px;">|</span>
+          <span style="color: #a78bfa; font-weight: 700;" title="Profit Factor">PF {{ metrics.profitFactor }}</span>
         </div>
       </div>
     </div>
@@ -98,14 +139,14 @@
     <div class="metric-card" [class.glow-profit]="metrics.totalPnL >= 0" [class.glow-danger]="metrics.totalPnL < 0">
       <div class="metric-title">Capital Actual</div>
       <div class="metric-value">
-        ${{ metrics.currentCapital | number:'1.2-2' }}
+        {{ isPrivacyMode ? '$••••••' : ('$' + (metrics.currentCapital | number:'1.2-2')) }}
       </div>
     </div>
 
     <div class="metric-card" [class.glow-profit]="metrics.totalPnL >= 0" [class.glow-danger]="metrics.totalPnL < 0">
       <div class="metric-title">PnL Neto</div>
       <div class="metric-value" [ngClass]="{'text-success': metrics.totalPnL >= 0, 'text-danger': metrics.totalPnL < 0}">
-        {{ metrics.totalPnL >= 0 ? '+' : '' }}${{ metrics.totalPnL | number:'1.2-2' }}
+        {{ isPrivacyMode ? '$••••••' : ((metrics.totalPnL >= 0 ? '+' : '') + '$' + (metrics.totalPnL | number:'1.2-2')) }}
       </div>
     </div>
 
@@ -182,23 +223,340 @@
     </div>
   </div>
 
+  <!-- SECCIÓN CUANTITATIVA: ANÁLISIS AVANZADO Y MODELADO ESTOCÁSTICO -->
+  <div class="quant-section card">
+    <!-- Header -->
+    <div class="quant-header">
+      <div class="quant-title-area">
+        <div class="quant-icon-badge">Q</div>
+        <div>
+          <div class="quant-badge-row">
+            <h3 class="quant-title">Expansión Cuantitativa & Modelado Estocástico</h3>
+            <span class="quant-inst-pill">Motor Institucional</span>
+            <span class="quant-trades-pill" *ngIf="quantitativeAnalysis">
+              {{ quantitativeAnalysis.totalTrades || allTrades.length }} Operaciones Modeladas
+            </span>
+          </div>
+          <p class="quant-subtitle">
+            Análisis probabilístico con Expectanza matemática ($E$), múltiplos de riesgo $R$, rendimiento por sesión global y simulación de Monte Carlo (1,000 iteraciones).
+          </p>
+        </div>
+      </div>
+
+      <div class="quant-actions">
+        <button class="btn btn-secondary btn-sm" (click)="loadQuantitativeAnalysis()" [disabled]="isLoadingQuantitative" title="Recalcular métricas cuantitativas y Monte Carlo">
+          <span *ngIf="!isLoadingQuantitative">Recalcular Modelo</span>
+          <span *ngIf="isLoadingQuantitative">Simulando...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pestañas de Navegación -->
+    <div class="quant-nav-tabs">
+      <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'expectancy'" (click)="activeQuantitativeTab = 'expectancy'">
+        Expectanza ($E$) & R-Multiples
+      </button>
+      <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'emociones'" (click)="activeQuantitativeTab = 'emociones'">
+        Matriz Empírica Emoción vs. PnL
+      </button>
+      <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'sesiones'" (click)="activeQuantitativeTab = 'sesiones'">
+        Rendimiento por Sesión & Fatiga
+      </button>
+      <button class="quant-tab-btn" [class.active]="activeQuantitativeTab === 'montecarlo'" (click)="activeQuantitativeTab = 'montecarlo'">
+        Simulador Monte Carlo & Ruina
+      </button>
+    </div>
+
+    <!-- PESTAÑA 1: EXPECTANZA MATEMÁTICA Y MÚLTIPLOS R -->
+    <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'expectancy'">
+      <!-- Tarjetas Clave de Expectanza -->
+      <div class="quant-kpi-grid">
+        <div class="quant-kpi-card" [class.kpi-positive]="(quantitativeAnalysis?.expectancy?.expectancyUSD || 0) >= 0" [class.kpi-negative]="(quantitativeAnalysis?.expectancy?.expectancyUSD || 0) < 0">
+          <div class="kpi-label">Expectanza Nominal (E en USD)</div>
+          <div class="kpi-value">
+            {{ (quantitativeAnalysis?.expectancy?.expectancyUSD || 0) >= 0 ? '+' : '' }}${{ (quantitativeAnalysis?.expectancy?.expectancyUSD || 0) | number:'1.2-2' }} <small>USD</small>
+          </div>
+          <div class="kpi-sub">Retorno esperado por cada trade ejecutado</div>
+        </div>
+
+        <div class="quant-kpi-card" [class.kpi-positive]="(quantitativeAnalysis?.expectancy?.expectancyR || 0) >= 0" [class.kpi-negative]="(quantitativeAnalysis?.expectancy?.expectancyR || 0) < 0">
+          <div class="kpi-label">Expectanza en Múltiplos (E en R)</div>
+          <div class="kpi-value">
+            {{ (quantitativeAnalysis?.expectancy?.expectancyR || 0) >= 0 ? '+' : '' }}{{ quantitativeAnalysis?.expectancy?.expectancyR || 0 }} <small>R</small>
+          </div>
+          <div class="kpi-sub">Normalizada sobre riesgo base inicial (1R)</div>
+        </div>
+
+        <div class="quant-kpi-card">
+          <div class="kpi-label">Ganancia vs. Pérdida Promedio</div>
+          <div class="kpi-value" style="font-size: 1.25rem;">
+            <span class="text-success">+${{ (quantitativeAnalysis?.expectancy?.avgWinUSD || 0) | number:'1.2-2' }}</span> / 
+            <span class="text-danger">-${{ (quantitativeAnalysis?.expectancy?.avgLossUSD || 0) | number:'1.2-2' }}</span>
+          </div>
+          <div class="kpi-sub">En R: +{{ quantitativeAnalysis?.expectancy?.avgWinR || 0 }}R / -{{ quantitativeAnalysis?.expectancy?.avgLossR || 0 }}R</div>
+        </div>
+
+        <div class="quant-kpi-card">
+          <div class="kpi-label">Evaluación Institucional del Edge</div>
+          <div class="kpi-badge-wrap">
+            <span class="edge-badge" [class.edge-elite]="(quantitativeAnalysis?.expectancy?.expectancyR || 0) > 0.5" [class.edge-solid]="(quantitativeAnalysis?.expectancy?.expectancyR || 0) > 0 && (quantitativeAnalysis?.expectancy?.expectancyR || 0) <= 0.5" [class.edge-negative]="(quantitativeAnalysis?.expectancy?.expectancyR || 0) < 0">
+              {{ quantitativeAnalysis?.expectancy?.qualityLabel || 'En Evaluación' }}
+            </span>
+          </div>
+          <div class="kpi-sub">Basado en estándares cuantitativos de Wall Street</div>
+        </div>
+      </div>
+
+      <!-- Fórmula y Demostración Cuantitativa -->
+      <div class="math-formula-box">
+        <div class="formula-header">
+          <strong>Demostración Formal de la Expectanza Matemática (E):</strong>
+        </div>
+        <div class="formula-latex">
+          E = (Win Rate &times; Avg Win) - (Loss Rate &times; Avg Loss) = ({{ quantitativeAnalysis?.expectancy?.winRatePct || 0 }}% &times; ${{ (quantitativeAnalysis?.expectancy?.avgWinUSD || 0) | number:'1.2-2' }}) - ({{ quantitativeAnalysis?.expectancy?.lossRatePct || 0 }}% &times; ${{ (quantitativeAnalysis?.expectancy?.avgLossUSD || 0) | number:'1.2-2' }})
+        </div>
+        <p class="formula-desc">
+          En fondos cuantitativos, un sistema con E &gt; 0 garantiza matemáticamente rentabilidad a largo plazo. Al normalizar cada operación por su riesgo planificado (R = PnL / Riesgo Asumido), se desacopla la habilidad del trader del tamaño nominal de la cuenta.
+        </p>
+      </div>
+
+      <!-- Gráfico de Distribución R -->
+      <div class="quant-chart-container" style="margin-top: 1.5rem;">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text-primary);">Distribución de Frecuencia de Operaciones en Múltiplos de Riesgo $R$</h4>
+        <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-secondary);">
+          Histograma de retornos normalizados: identifica si tu operativa cuenta con asimetría positiva (> 2R, > 3R) o si sufre de pérdidas no controladas (&lt; -2R).
+        </p>
+        <div class="chart-wrapper" style="height: 280px;">
+          <canvas baseChart
+                  [data]="rDistributionChartData"
+                  [options]="rDistributionChartOptions"
+                  [type]="'bar'">
+          </canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 2: MATRIZ EMPÍRICA EMOCIÓN VS. PNL -->
+    <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'emociones'">
+      <!-- Banner de Diagnóstico Empírico -->
+      <div class="academic-insight-banner">
+        <div>
+          <h5 style="margin: 0 0 4px 0; color: #38bdf8; font-size: 0.95rem;">Impacto Estadístico del Estado Emocional:</h5>
+          <p style="margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary);" *ngIf="quantitativeAnalysis?.emotionMatrix?.comparativeInsights && quantitativeAnalysis?.emotionMatrix?.comparativeInsights?.length > 0">
+            {{ quantitativeAnalysis.emotionMatrix.comparativeInsights[0].insight }}
+          </p>
+          <p style="margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary);" *ngIf="!quantitativeAnalysis?.emotionMatrix?.comparativeInsights || quantitativeAnalysis?.emotionMatrix?.comparativeInsights?.length === 0">
+            Las operaciones ejecutadas bajo estados psicológicos de <strong>Calma</strong> y <strong>Confianza</strong> mantienen un Win Rate significativamente superior y una pérdida promedio controlada frente a estados de <strong>FOMO</strong> o <strong>Venganza</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tabla Cruzada de Correlación -->
+      <div class="table-responsive" style="margin-top: 1.25rem;">
+        <table class="quant-table">
+          <thead>
+            <tr>
+              <th>Estado Emocional</th>
+              <th>Trades</th>
+              <th>Win Rate</th>
+              <th>PnL Total (USD)</th>
+              <th>PnL Promedio</th>
+              <th>Avg Win / Avg Loss</th>
+              <th>Profit Factor</th>
+              <th>Indisciplina (Sin SL)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of (quantitativeAnalysis?.emotionMatrix?.matrix || [])">
+              <td>
+                <span class="emotion-pill">{{ row.emotion }}</span>
+              </td>
+              <td><strong>{{ row.tradesCount }}</strong></td>
+              <td>
+                <span [class.text-success]="row.winRate >= 50" [class.text-danger]="row.winRate < 40" [class.text-warning]="row.winRate >= 40 && row.winRate < 50">
+                  {{ row.winRate }}%
+                </span>
+              </td>
+              <td [ngClass]="row.totalPnL >= 0 ? 'text-success' : 'text-danger'">
+                <strong>{{ row.totalPnL >= 0 ? '+' : '' }}${{ row.totalPnL | number:'1.2-2' }}</strong>
+              </td>
+              <td [ngClass]="row.avgPnL >= 0 ? 'text-success' : 'text-danger'">
+                ${{ row.avgPnL | number:'1.2-2' }}
+              </td>
+              <td style="font-size: 0.82rem; color: #94a3b8;">
+                <span class="text-success">+${{ row.avgWin | number:'1.2-2' }}</span> / 
+                <span class="text-danger">-${{ row.avgLoss | number:'1.2-2' }}</span>
+              </td>
+              <td>
+                <span class="pf-pill" [class.pf-good]="row.profitFactor >= 1.5" [class.pf-bad]="row.profitFactor < 1">
+                  {{ row.profitFactor }}
+                </span>
+              </td>
+              <td>
+                <span class="indiscipline-pill" [class.indiscipline-high]="row.indisciplineRate > 20">
+                  {{ row.indisciplineRate }}%
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="!quantitativeAnalysis?.emotionMatrix?.matrix || quantitativeAnalysis?.emotionMatrix?.matrix?.length === 0">
+              <td colspan="8" style="text-align: center; color: #64748b; padding: 2rem;">No hay operaciones registradas para correlacionar emociones con PnL.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cuadro comparativo de sesgos emocionales -->
+      <div class="insights-chips-grid" *ngIf="quantitativeAnalysis?.emotionMatrix?.comparativeInsights && quantitativeAnalysis?.emotionMatrix?.comparativeInsights?.length > 0" style="margin-top: 1.25rem;">
+        <div class="insight-chip-card" *ngFor="let item of quantitativeAnalysis.emotionMatrix.comparativeInsights">
+          <div class="insight-chip-header">
+            <span class="chip-emotion">{{ item.emotion }}</span>
+            <span class="chip-multiplier" [class.chip-bad]="item.lossMultiplier > 1.2">
+              Pérdida {{ item.lossMultiplier }}x vs. Calma
+            </span>
+          </div>
+          <p class="chip-text">{{ item.insight }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 3: DESGLOSE POR SESIÓN Y FRANJA HORARIA -->
+    <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'sesiones'">
+      <!-- Alerta de Fatiga Operativa -->
+      <div class="fatigue-alert-banner" *ngIf="quantitativeAnalysis?.sessionBreakdown?.fatigueAlerts && quantitativeAnalysis?.sessionBreakdown?.fatigueAlerts?.length > 0">
+        <div>
+          <h5 style="margin: 0 0 3px 0; color: #f87171; font-size: 0.95rem;">Alerta Cuantitativa de Fatiga Operativa:</h5>
+          <p style="margin: 0; font-size: 0.88rem; color: #fca5a5;">
+            {{ quantitativeAnalysis.sessionBreakdown.fatigueAlerts[0].message }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Grid de Sesiones Globales -->
+      <div class="sessions-grid" style="margin-top: 1.25rem;">
+        <div class="session-card" *ngFor="let s of (quantitativeAnalysis?.sessionBreakdown?.sessions || [])" [class.session-best]="s.code === quantitativeAnalysis?.sessionBreakdown?.bestSession?.code" [class.session-worst]="s.code === quantitativeAnalysis?.sessionBreakdown?.worstSession?.code && s.totalPnL < 0">
+          <div class="session-card-header">
+            <span class="session-name">{{ s.sessionName }}</span>
+            <span class="session-badge-best" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.bestSession?.code">Más Rentable</span>
+            <span class="session-badge-worst" *ngIf="s.code === quantitativeAnalysis?.sessionBreakdown?.worstSession?.code && s.totalPnL < 0">Mayor Fuga</span>
+          </div>
+          <div class="session-pnl-strip" [ngClass]="s.totalPnL >= 0 ? 'text-success' : 'text-danger'">
+            {{ s.totalPnL >= 0 ? '+' : '' }}${{ s.totalPnL | number:'1.2-2' }} <small>USD</small>
+          </div>
+          <div class="session-stats-row">
+            <div>
+              <span>Trades:</span>
+              <strong>{{ s.tradesCount }}</strong>
+            </div>
+            <div>
+              <span>Win Rate:</span>
+              <strong [class.text-success]="s.winRate >= 50" [class.text-danger]="s.winRate < 40">{{ s.winRate }}%</strong>
+            </div>
+            <div>
+              <span>Avg/Trade:</span>
+              <strong [class.text-success]="s.avgPnL >= 0" [class.text-danger]="s.avgPnL < 0">${{ s.avgPnL | number:'1.2-2' }}</strong>
+            </div>
+            <div>
+              <span>Sin SL:</span>
+              <strong class="text-warning">{{ s.indisciplineCount }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 4: SIMULADOR DE MONTE CARLO Y RIESGO DE RUINA -->
+    <div class="quant-tab-content" *ngIf="activeQuantitativeTab === 'montecarlo'">
+      <!-- Tarjetas Clave de Monte Carlo -->
+      <div class="quant-kpi-grid">
+        <div class="quant-kpi-card" [class.kpi-negative]="(quantitativeAnalysis?.monteCarlo?.riskOfRuinPct || 0) > 10" [class.kpi-positive]="(quantitativeAnalysis?.monteCarlo?.riskOfRuinPct || 0) <= 2">
+          <div class="kpi-label">Probabilidad de Ruina (Risk of Ruin)</div>
+          <div class="kpi-value" [class.text-danger]="(quantitativeAnalysis?.monteCarlo?.riskOfRuinPct || 0) > 10" [class.text-success]="(quantitativeAnalysis?.monteCarlo?.riskOfRuinPct || 0) <= 2">
+            {{ quantitativeAnalysis?.monteCarlo?.riskOfRuinPct || 0 }}%
+          </div>
+          <div class="kpi-sub">Probabilidad de perder ≥ 35% del capital con remuestreo</div>
+        </div>
+
+        <div class="quant-kpi-card kpi-positive">
+          <div class="kpi-label">Percentil 95 (Optimista)</div>
+          <div class="kpi-value text-success">
+            ${{ (quantitativeAnalysis?.monteCarlo?.projectedEquityCurves && quantitativeAnalysis?.monteCarlo?.projectedEquityCurves.length > 0 ? quantitativeAnalysis.monteCarlo.projectedEquityCurves[quantitativeAnalysis.monteCarlo.projectedEquityCurves.length - 1].p95 : 0) | number:'1.2-2' }}
+          </div>
+          <div class="kpi-sub">Mejor 5% de las 1,000 curvas proyectadas</div>
+        </div>
+
+        <div class="quant-kpi-card">
+          <div class="kpi-label">Mediana (Percentil 50 Esperado)</div>
+          <div class="kpi-value" style="color: #38bdf8;">
+            ${{ (quantitativeAnalysis?.monteCarlo?.projectedEquityCurves && quantitativeAnalysis?.monteCarlo?.projectedEquityCurves.length > 0 ? quantitativeAnalysis.monteCarlo.projectedEquityCurves[quantitativeAnalysis.monteCarlo.projectedEquityCurves.length - 1].p50 : 0) | number:'1.2-2' }}
+          </div>
+          <div class="kpi-sub">Resultado modal esperado sin sesgo de orden</div>
+        </div>
+
+        <div class="quant-kpi-card" [class.kpi-negative]="true">
+          <div class="kpi-label">Percentil 5 (Pesimista / Stress Test)</div>
+          <div class="kpi-value text-danger">
+            ${{ (quantitativeAnalysis?.monteCarlo?.projectedEquityCurves && quantitativeAnalysis?.monteCarlo?.projectedEquityCurves.length > 0 ? quantitativeAnalysis.monteCarlo.projectedEquityCurves[quantitativeAnalysis.monteCarlo.projectedEquityCurves.length - 1].p5 : 0) | number:'1.2-2' }}
+          </div>
+          <div class="kpi-sub">Peor 5% para calibración de drawdown límite</div>
+        </div>
+      </div>
+
+      <!-- Gráfico de Monte Carlo -->
+      <div class="quant-chart-container" style="margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h4 style="margin: 0; font-size: 1rem; color: var(--text-primary);">1,000 Curvas Probabilísticas de Capital Proyectadas</h4>
+            <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+              Aleatorización estocástica (Bootstrap Resampling con reemplazo a 100 operaciones futuras).
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <span class="mc-legend-pill p95">● P95 Optimista</span>
+            <span class="mc-legend-pill p50">● P50 Mediana</span>
+            <span class="mc-legend-pill p5">● P5 Pesimista</span>
+          </div>
+        </div>
+        <div class="chart-wrapper" style="height: 320px;">
+          <canvas baseChart
+                  [data]="monteCarloChartData"
+                  [options]="monteCarloChartOptions"
+                  [type]="'line'">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Interpretación y Marco Metodológico -->
+      <div class="math-formula-box" style="margin-top: 1.5rem;">
+        <div class="formula-header">
+          <strong>Fórmula Analítica de Riesgo de Ruina (Perry Kaufman & Ralph Vince):</strong>
+        </div>
+        <div class="formula-latex">
+          P(Ruina) = ((1 - A) / (1 + A))^U, donde A = (Win Rate &times; Payoff) - (1 - Win Rate)
+        </div>
+        <p class="formula-desc">
+          <strong>Diagnóstico Algorítmico:</strong> {{ quantitativeAnalysis?.monteCarlo?.interpretation || 'El remuestreo aleatorio permite desacoplar la suerte temporal de la robustez real del sistema de trading.' }}
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- SECCIÓN: AUDITOR CUANTITATIVO Y DE PSICOLOGÍA OPERATIVA -->
   <div class="ai-auditor-card card">
     <!-- Header del Auditor -->
     <div class="ai-auditor-header">
       <div class="ai-auditor-title-area">
         <div class="ai-avatar-badge">
-          <span class="ai-icon">📊</span>
+          <span class="ai-icon">AI</span>
           <span class="ai-live-pulse" title="Auditoría Operativa Activa"></span>
         </div>
         <div>
           <div class="ai-badge-row">
             <h3 class="ai-auditor-title">Auditor Cuantitativo y de Psicología Operativa</h3>
             <span class="ai-version-pill" [class.ai-powered]="aiPsychologyReport?.isAiPowered">
-              {{ aiPsychologyReport?.isAiPowered ? '🤖 ' : '📊 ' }}{{ aiPsychologyReport?.engine || 'Motor Cuantitativo & Conductual' }}
+              {{ aiPsychologyReport?.engine || 'Motor Cuantitativo & Conductual' }}
             </span>
-            <span class="ai-status-pill" [class.status-good]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70" [class.status-warn]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 70">
-              ● {{ (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70 ? 'Disciplina Estable' : 'Alerta de Riesgo' }}
+            <span class="ai-status-pill" [class.status-good]="(aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70" [class.status-warn]="(aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 || (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 70">
+              ● {{ (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 ? 'Alerta: Capital en Drawdown' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 70 ? 'Disciplina Estable' : 'Alerta de Riesgo') }}
             </span>
           </div>
           <p class="ai-auditor-subtitle">
@@ -209,8 +567,8 @@
 
       <div class="ai-auditor-actions">
         <button class="btn btn-ai-refresh" (click)="loadAiPsychologyReport(true)" [disabled]="isLoadingAiReport" title="Volver a auditar las operaciones de la cuenta">
-          <span *ngIf="!isLoadingAiReport">⚡ Re-Auditar Operaciones</span>
-          <span *ngIf="isLoadingAiReport" class="loading-spin">🔄 Auditando...</span>
+          <span *ngIf="!isLoadingAiReport">Re-Auditar Operaciones</span>
+          <span *ngIf="isLoadingAiReport" class="loading-spin">Auditando...</span>
         </button>
       </div>
     </div>
@@ -225,7 +583,6 @@
           <span class="cockpit-tag">Perfil Mental</span>
         </div>
         <div class="archetype-body">
-          <div class="archetype-emoji">{{ aiPsychologyReport?.archetype?.emoji || '⛩️' }}</div>
           <div class="archetype-info">
             <h4 class="archetype-title">{{ aiPsychologyReport?.archetype?.title || 'Estratega Disciplinado' }}</h4>
             <span class="archetype-sub">{{ aiPsychologyReport?.archetype?.subtitle || 'Disciplina inicial intacta (100%)' }}</span>
@@ -240,18 +597,18 @@
       <div class="ai-cockpit-card card-score">
         <div class="cockpit-card-header">
           <span class="cockpit-label">Índice de Disciplina Mental</span>
-          <span class="score-status-badge" [class.text-success]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50">
-            {{ (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? 'Excelente' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? 'Moderado' : 'Crítico') }}
+          <span class="score-status-badge" [class.text-success]="(aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="((aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75) || ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50)" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50 || ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 65)">
+            {{ (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 65 ? 'Crítico (En Déficit)' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 && (aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 ? 'Excelente' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? 'Moderado' : 'Crítico')) }}
           </span>
         </div>
         <div class="score-number-row">
-          <span class="score-big" [class.text-success]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50">
+          <span class="score-big" [class.text-success]="(aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75" [class.text-warning]="((aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 75) || ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50)" [class.text-danger]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 50 || ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) < 65)">
             {{ aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100 }}
           </span>
           <span class="score-total">/ 100</span>
         </div>
         <div class="score-progress-bar">
-          <div class="score-progress-fill" [style.width.%]="aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100" [style.background]="(aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? 'linear-gradient(90deg, #10b981, #34d399)' : ((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, #ef4444, #f87171)')"></div>
+          <div class="score-progress-fill" [style.width.%]="aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100" [style.background]="(aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0 && (aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 75 ? 'linear-gradient(90deg, #10b981, #34d399)' : (((aiPsychologyReport?.disciplineScore !== undefined && aiPsychologyReport?.disciplineScore !== null ? aiPsychologyReport.disciplineScore : 100) >= 50 && (aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0) ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, #ef4444, #f87171)')"></div>
         </div>
         <div class="score-meta-text">
           <span>Stop Loss: <strong>{{ slAdherencePct }}%</strong></span>
@@ -264,22 +621,26 @@
         <div class="cockpit-card-header">
           <span class="cockpit-label">Fuga de Capital por Indisciplina</span>
           <span class="cockpit-tag tag-danger" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0">Fuga Detectada</span>
-          <span class="cockpit-tag tag-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">Sin Fuga</span>
+          <span class="cockpit-tag tag-warn" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0">En Pérdida</span>
+          <span class="cockpit-tag tag-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0">Sin Fuga</span>
         </div>
         <div class="leakage-value-row">
-          <span class="leakage-amount" [class.text-danger]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0" [class.text-success]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">
-            {{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0 ? '-$' : '$' }}{{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) | number:'1.2-2' }}
+          <span class="leakage-amount" [class.text-danger]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0" [class.text-warning]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0" [class.text-success]="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0">
+            {{ (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0 ? '-$' : ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 ? '-$' : '$') }}{{ ((aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0 ? (aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) : ((aiPsychologyReport?.accountInfo?.netPnL || 0) < 0 ? -1 * (aiPsychologyReport?.accountInfo?.netPnL || 0) : 0)) | number:'1.2-2' }}
           </span>
           <span class="leakage-currency">USD</span>
         </div>
         <p class="leakage-desc" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) > 0">
-          Pérdidas acumuladas en entradas sin Stop Loss o tomadas por revancha post-pérdida.
+          Pérdidas acumuladas en operaciones fuera de plan, sin Stop Loss o con sobreapalancamiento excesivo.
         </p>
-        <p class="leakage-desc text-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0">
+        <p class="leakage-desc text-warning" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) < 0">
+          La cuenta está en déficit global. Aunque respetes parámetros declarados, el tamaño de las pérdidas sobrepasa los beneficios.
+        </p>
+        <p class="leakage-desc text-success" *ngIf="(aiPsychologyReport?.financialImpact?.undisciplinedLoss || 0) === 0 && (aiPsychologyReport?.accountInfo?.netPnL || 0) >= 0">
           ¡Cero dinero perdido por indisciplina! Tu capital está 100% blindado por tus reglas.
         </p>
         <div class="leakage-footer" *ngIf="(aiPsychologyReport?.financialImpact?.potentialSavings || 0) > 0">
-          💡 Dinero recuperable respetando tu plan: <strong class="text-success">+${{ (aiPsychologyReport?.financialImpact?.potentialSavings || 0) | number:'1.2-2' }}</strong>
+          Dinero recuperable respetando tu plan: <strong class="text-success">+${{ (aiPsychologyReport?.financialImpact?.potentialSavings || 0) | number:'1.2-2' }}</strong>
         </div>
       </div>
 
@@ -310,13 +671,13 @@
     <!-- Navegación de Pestañas del Auditor -->
     <div class="ai-tabs-bar">
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'resumen'" (click)="activeAuditorTab = 'resumen'">
-        📑 Diagnóstico Conductual y Desempeño
+        Diagnóstico Conductual y Desempeño
       </button>
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'sesgos'" (click)="activeAuditorTab = 'sesgos'">
-        🔬 Sesgos Cognitivos Cuantificados ({{ aiPsychologyReport?.biases?.length || 4 }})
+        Sesgos Cognitivos Cuantificados ({{ aiPsychologyReport?.biases?.length || 4 }})
       </button>
       <button class="ai-tab-btn" [class.active]="activeAuditorTab === 'protocolos'" (click)="activeAuditorTab = 'protocolos'">
-        🛡️ Protocolos Tácticos de Rendimiento ({{ aiPsychologyReport?.prescriptions?.length || 4 }})
+        Protocolos Tácticos de Rendimiento ({{ aiPsychologyReport?.prescriptions?.length || 4 }})
       </button>
     </div>
 
@@ -327,28 +688,28 @@
       <!-- 4 Pilares de Evaluación -->
       <div class="ai-pillars-grid">
         <div class="pillar-item">
-          <div class="pillar-icon">🧠</div>
+          <div class="pillar-icon">01</div>
           <div class="pillar-body">
             <h5>Control Emocional</h5>
             <p>{{ aiInsights.psychology }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">🛡️</div>
+          <div class="pillar-icon">02</div>
           <div class="pillar-body">
             <h5>Gestión de Riesgo</h5>
             <p>{{ aiInsights.risk }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">🎯</div>
+          <div class="pillar-icon">03</div>
           <div class="pillar-body">
             <h5>Ejecución Técnica</h5>
             <p>{{ aiInsights.bestStrategy }}</p>
           </div>
         </div>
         <div class="pillar-item">
-          <div class="pillar-icon">⭐</div>
+          <div class="pillar-icon">04</div>
           <div class="pillar-body">
             <h5>Regla de Oro Personalizada</h5>
             <p>{{ aiInsights.actionableAdvice }}</p>
@@ -375,7 +736,7 @@
             <strong class="text-danger">-${{ bias.costUSD | number:'1.2-2' }} USD</strong>
           </div>
           <p class="bias-tip">
-            💡 <strong>Recomendación Técnica:</strong> {{ bias.tip }}
+            <strong>Recomendación Técnica:</strong> {{ bias.tip }}
           </p>
         </div>
       </div>
@@ -397,9 +758,250 @@
 
 </div>
 
-<div class="empty-state card" *ngIf="!isLoading && accounts.length === 0" style="margin: 3rem auto; max-width: 620px; padding: 3rem 2rem; text-align: center; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;">
-  <div style="font-size: 3.5rem; margin-bottom: 1.25rem;">💼</div>
-  <h3 style="color: #fff; font-size: 1.35rem; margin-bottom: 0.6rem;">No tienes cuentas de trading configuradas</h3>
+<div class="empty-state card" *ngIf="!isLoading && accounts.length === 0" style="margin: 3rem auto; max-width: 620px; padding: 3rem 2rem; text-align: center; border-radius: 16px;">
+  <div style="margin-bottom: 1.25rem;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-secondary);">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+    </svg>
+  </div>
+  <h3 style="color: var(--text-primary); font-size: 1.35rem; margin-bottom: 0.6rem;">No tienes cuentas de trading configuradas</h3>
   <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.75rem;">Crea tu primer portafolio en la Bitácora (Forex, Futuros, Cripto o Binarias) para activar tus métricas en tiempo real y la auditoría cognitiva con IA.</p>
-  <a routerLink="/bitacora" class="btn btn-primary" style="padding: 0.75rem 1.75rem; font-size: 0.95rem; font-weight: 600;">+ Crear Portafolio en Bitácora</a>
+  <button class="btn btn-primary" (click)="openAccountForm(false)" style="padding: 0.75rem 1.75rem; font-size: 0.95rem; font-weight: 600;">+ Crear Portafolio</button>
+</div>
+
+<!-- Modal Formulario de Cuenta / Portafolio en Dashboard -->
+<div class="modal-backdrop" *ngIf="showAccountForm">
+  <div class="card form-card" style="max-width: 500px; width: 92%; margin: 15vh auto; position: relative; z-index: 10000; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid var(--border-color);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-secondary);">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        {{ isEditingAccount ? 'Editar Cuenta / Portafolio' : 'Crear Nueva Cuenta' }}
+      </h3>
+      <button class="btn-icon" (click)="showAccountForm = false" style="background: none; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer;">&times;</button>
+    </div>
+    
+    <form (ngSubmit)="saveAccount()" #accForm="ngForm">
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Nombre de la Cuenta / Portafolio</label>
+        <input type="text" class="form-control" name="name" [(ngModel)]="accountForm.name" placeholder="Ej: Cuenta Fondeo FTMO, Portafolio Swing, etc." required>
+      </div>
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Mercado Principal</label>
+        <select class="form-control" name="market_type" [(ngModel)]="accountForm.market_type" required>
+          <option value="General">General (Multimercado)</option>
+          <option *ngFor="let market of marketTypes" [value]="market">{{ market }}</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Saldo / Balance Inicial ($ USD)</label>
+        <input type="number" step="0.01" class="form-control" name="balance" [(ngModel)]="accountForm.balance" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; background: rgba(245, 158, 11, 0.08); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2);">
+        <input type="checkbox" id="dashIsDefault" [(ngModel)]="accountForm.is_default" name="is_default" style="width: 17px; height: 17px; cursor: pointer; accent-color: #f59e0b;">
+        <label for="dashIsDefault" style="margin: 0; cursor: pointer; font-size: 0.85rem; color: #f59e0b; font-weight: 600;">
+          Establecer como Cuenta Principal Predeterminada
+        </label>
+      </div>
+      
+      <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+        <button type="button" class="btn btn-secondary" (click)="showAccountForm = false">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!accForm.form.valid">Guardar Cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal de Ficha Ejecutiva / Documento Imprimible -->
+<div class="modal-backdrop" *ngIf="showPrintModal" (click)="closePrintModal()">
+  <div class="card factsheet-modal-card" (click)="$event.stopPropagation()">
+    <!-- Barra Superior de Acciones del Modal -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+      <div>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Vista Previa de Ficha Ejecutiva
+        </h3>
+        <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #94a3b8;">
+          Documento formateado institucionalmente para impresión en papel o exportación a PDF.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button class="btn btn-primary" (click)="triggerPrintFactsheet()" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 0.85rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Mandar a Imprimir
+        </button>
+        <button class="btn btn-secondary" (click)="exportPdfReport()" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 0.85rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          Descargar PDF
+        </button>
+        <button class="btn-icon" (click)="closePrintModal()" title="Cerrar" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; padding: 0 4px;">&times;</button>
+      </div>
+    </div>
+
+    <!-- DOCUMENTO HOJA TÉCNICA / TEAR SHEET (Clase .printable-factsheet para aislamiento en impresión) -->
+    <div class="factsheet-sheet printable-factsheet">
+      <!-- Encabezado Institucional -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 1.25rem; margin-bottom: 1.5rem;">
+        <div>
+          <div style="font-size: 0.75rem; letter-spacing: 1.5px; font-weight: 700; color: #2563eb; text-transform: uppercase;">
+            Trading Portfolio Management System
+          </div>
+          <h1 style="margin: 4px 0 6px 0; font-size: 1.5rem; font-weight: 800; color: #0f172a;">
+            Ficha Ejecutiva de Rendimiento
+          </h1>
+          <div style="font-size: 0.85rem; color: #475569;">
+            Auditoría Operativa, Desempeño Cuantitativo & Control Psicológico
+          </div>
+        </div>
+        <div style="text-align: right; font-size: 0.8rem; color: #64748b;">
+          <div><strong style="color: #0f172a;">Fecha Emisión:</strong> {{ todayDate | date:'dd/MM/yyyy HH:mm' }}</div>
+          <div><strong style="color: #0f172a;">Portafolio:</strong> {{ selectedAccount?.name }}</div>
+          <div><strong style="color: #0f172a;">Mercado:</strong> {{ selectedAccount?.market_type }}</div>
+          <div><strong style="color: #0f172a;">Moneda Base:</strong> USD ($)</div>
+        </div>
+      </div>
+
+      <!-- Métricas Clave (Resumen Financiero) -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Balance Actual</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 4px;">
+            ${{ selectedAccount?.balance | number:'1.2-2' }}
+          </div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">PnL Neto Total</div>
+          <div style="font-size: 1.35rem; font-weight: 800; margin-top: 4px;" [style.color]="metrics.totalPnL >= 0 ? '#16a34a' : '#dc2626'">
+            {{ metrics.totalPnL >= 0 ? '+' : '' }}${{ metrics.totalPnL | number:'1.2-2' }}
+          </div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Tasa de Acierto (Win Rate)</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #2563eb; margin-top: 4px;">
+            {{ metrics.winRate }}%
+          </div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Profit Factor</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 4px;">
+            {{ metrics.profitFactor }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Cuadrícula Secundaria: Indicadores Cuantitativos -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Total Operaciones:</span>
+          <strong style="font-size: 0.95rem; color: #0f172a;">{{ metrics.totalCount }}</strong>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Ganadoras vs Perdedoras:</span>
+          <strong style="font-size: 0.95rem; color: #0f172a;"><span style="color: #16a34a;">{{ metrics.winningCount }}</span> / <span style="color: #dc2626;">{{ metrics.losingCount }}</span></strong>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Ganancia Promedio:</span>
+          <strong style="font-size: 0.95rem; color: #16a34a;">+${{ metrics.avgWin | number:'1.2-2' }}</strong>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Pérdida Promedio:</span>
+          <strong style="font-size: 0.95rem; color: #dc2626;">-${{ metrics.avgLoss | number:'1.2-2' }}</strong>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Max Drawdown:</span>
+          <strong style="font-size: 0.95rem; color: #dc2626;">{{ metrics.maxDrawdown }}%</strong>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: #64748b;">Cumplimiento Stop Loss:</span>
+          <strong style="font-size: 0.95rem; color: #0f172a;">{{ slAdherencePct }}%</strong>
+        </div>
+      </div>
+
+      <!-- Diagnóstico Conductual & Disciplina -->
+      <div style="background: #f1f5f9; border-left: 4px solid #2563eb; border-radius: 4px; padding: 12px 16px; margin-bottom: 1.5rem;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-bottom: 4px;">
+          Auditoría de Disciplina & Inteligencia Conductual
+        </div>
+        <p style="margin: 0; font-size: 0.85rem; color: #334155; line-height: 1.45;">
+          {{ aiInsights.psychology || 'Operativa consistente sin sesgos de sobreoperación registrados.' }}
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #334155; line-height: 1.45;">
+          <strong>Regla de Gestión:</strong> {{ aiInsights.actionableAdvice }}
+        </p>
+      </div>
+
+      <!-- Tabla de Operaciones Recientes -->
+      <div style="margin-bottom: 1.5rem;">
+        <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 8px; text-transform: uppercase;">
+          Registro de Operaciones Recientes (Últimos {{ recentFactsheetTrades.length }} Trades)
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc;">
+              <th style="padding: 8px 6px; color: #475569;">Fecha</th>
+              <th style="padding: 8px 6px; color: #475569;">Activo</th>
+              <th style="padding: 8px 6px; color: #475569;">Dirección</th>
+              <th style="padding: 8px 6px; color: #475569; text-align: right;">Lotaje</th>
+              <th style="padding: 8px 6px; color: #475569; text-align: right;">Entrada</th>
+              <th style="padding: 8px 6px; color: #475569; text-align: right;">Salida</th>
+              <th style="padding: 8px 6px; color: #475569; text-align: right;">PnL ($)</th>
+              <th style="padding: 8px 6px; color: #475569; text-align: center;">Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of recentFactsheetTrades" style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 7px 6px; color: #334155;">{{ t.createdAt | date:'dd/MM/yy HH:mm' }}</td>
+              <td style="padding: 7px 6px; font-weight: 700; color: #0f172a;">{{ t.asset }}</td>
+              <td style="padding: 7px 6px;">
+                <span [style.color]="t.direction === 'BUY' || t.direction === 'CALL' ? '#16a34a' : '#dc2626'" style="font-weight: 600;">
+                  {{ t.direction }}
+                </span>
+              </td>
+              <td style="padding: 7px 6px; text-align: right; color: #334155;">{{ t.lot_size }}</td>
+              <td style="padding: 7px 6px; text-align: right; color: #334155;">{{ t.entry_price }}</td>
+              <td style="padding: 7px 6px; text-align: right; color: #334155;">{{ t.exit_price || '-' }}</td>
+              <td style="padding: 7px 6px; text-align: right; font-weight: 700;" [style.color]="(t.pnl >= 0) ? '#16a34a' : '#dc2626'">
+                {{ t.pnl >= 0 ? '+' : '' }}${{ t.pnl | number:'1.2-2' }}
+              </td>
+              <td style="padding: 7px 6px; text-align: center;">
+                <span [style.background]="t.status === 'WIN' ? '#dcfce7' : '#fee2e2'" 
+                      [style.color]="t.status === 'WIN' ? '#166534' : '#991b1b'" 
+                      style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
+                  {{ t.status }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="recentFactsheetTrades.length === 0">
+              <td colspan="8" style="padding: 12px; text-align: center; color: #64748b;">
+                No hay operaciones registradas para este portafolio aún.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pie de página / Firma de Certificación -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 1rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #94a3b8;">
+        <div>Generado por el Sistema Cuantitativo y Conductual de Trading Portfolio</div>
+        <div>Documento confidencial &bull; Página 1 de 1</div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { SERVER_BOOT_ID } = require('../utils/serverInstance');
 
 const authMiddleware = async (req, res, next) => {
   const token = req.header('Authorization');
@@ -28,6 +29,14 @@ const authMiddleware = async (req, res, next) => {
       }
     }
     
+    // Invalida la sesión si el servidor fue reiniciado después de emitir el token
+    if (!decoded.bootId || decoded.bootId !== SERVER_BOOT_ID) {
+      return res.status(401).json({ 
+        message: 'Tu sesión ha caducado debido al reinicio del servidor. Por favor, inicia sesión nuevamente.',
+        code: 'SERVER_RESTARTED'
+      });
+    }
+
     // Check if user still exists in DB
     const user = await User.findByPk(decoded.id);
     if (!user) {

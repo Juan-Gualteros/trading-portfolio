@@ -6,6 +6,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.post('/register', register);
 router.post('/login', login);
 router.get('/verify/:token', verifyEmail);
+router.get('/recaptcha-config', (req, res) => {
+  res.json({ siteKey: process.env.RECAPTCHA_SITE_KEY || '' });
+});
 
 router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, updateProfile);

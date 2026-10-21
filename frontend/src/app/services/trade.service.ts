@@ -32,9 +32,21 @@ export class TradeService {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
-  getPsychologicalAnalysis(accountId?: number): Observable<any> {
-    const url = accountId ? `${this.apiUrl}/psychological-analysis?accountId=${accountId}` : `${this.apiUrl}/psychological-analysis`;
+  getPsychologicalAnalysis(accountId?: number, forceRefresh: boolean = false): Observable<any> {
+    let url = accountId ? `${this.apiUrl}/psychological-analysis?accountId=${accountId}` : `${this.apiUrl}/psychological-analysis`;
+    if (forceRefresh) {
+      url += (url.includes('?') ? '&' : '?') + 'forceRefresh=true';
+    }
     return this.http.get(url);
+  }
+
+  getQuantitativeAnalysis(accountId?: number): Observable<any> {
+    const url = accountId ? `${this.apiUrl}/quantitative-analysis?accountId=${accountId}` : `${this.apiUrl}/quantitative-analysis`;
+    return this.http.get(url);
+  }
+
+  importCSV(accountId: number, trades: any[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/import-csv`, { accountId, trades });
   }
 
   detectEmotion(tradeData: any): Observable<any> {

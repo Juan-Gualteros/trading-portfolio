@@ -1,20 +1,126 @@
 <nav class="navbar">
   <div class="navbar-container">
     <a routerLink="/" class="navbar-brand">
-      <span class="brand-badge">⚡</span>
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+          <polyline points="16 7 22 7 22 13"></polyline>
+        </svg>
+      </div>
       <span class="brand-text">Trade<span class="brand-highlight">Portfolio</span></span>
       <span class="brand-tag">PRO</span>
     </a>
+
     <div class="navbar-links">
       <ng-container *ngIf="isLoggedIn; else loggedOut">
-        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">📊 Dashboard</a>
-        <a routerLink="/bitacora" routerLinkActive="active" class="nav-link">📓 Bitácora</a>
-        <a routerLink="/profile" routerLinkActive="active" class="nav-link">👤 Perfil</a>
-        <div class="user-menu">
-          <span class="username">{{ username }}</span>
-          <button (click)="logout()" class="btn-logout" title="Cerrar sesión">Salir</button>
+        <!-- Enlaces Principales -->
+        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="9"></rect>
+            <rect x="14" y="3" width="7" height="5"></rect>
+            <rect x="14" y="12" width="7" height="9"></rect>
+            <rect x="3" y="16" width="7" height="5"></rect>
+          </svg>
+          <span>Dashboard</span>
+        </a>
+
+        <a routerLink="/bitacora" routerLinkActive="active" class="nav-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          <span>Bitácora</span>
+        </a>
+
+        <!-- Menú Desplegable de Usuario y Configuración -->
+        <div class="user-dropdown-container">
+          <button class="user-dropdown-trigger" (click)="toggleDropdown($event)" [class.active]="isDropdownOpen" type="button" aria-haspopup="true">
+            <div class="user-avatar">
+              {{ (username ? username.charAt(0) : 'U') | uppercase }}
+            </div>
+            <span class="user-name-text">{{ username }}</span>
+            <svg class="chevron-icon" [class.rotated]="isDropdownOpen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Menú Flotante Desplegable -->
+          <div class="dropdown-menu" *ngIf="isDropdownOpen">
+            <div class="dropdown-header">
+              <div class="header-avatar">
+                {{ (username ? username.charAt(0) : 'U') | uppercase }}
+              </div>
+              <div class="header-info">
+                <span class="header-username">{{ username }}</span>
+                <span class="header-email" *ngIf="userEmail">{{ userEmail }}</span>
+                <span class="header-badge">Cuenta Verificada</span>
+              </div>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-section-title">Navegación & Cuenta</div>
+
+            <a routerLink="/profile" class="dropdown-item" (click)="closeDropdown()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span>Mi Perfil</span>
+            </a>
+
+            <a routerLink="/bitacora" class="dropdown-item" (click)="closeDropdown()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span>Gestión de Portafolios</span>
+            </a>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-section-title">Preferencias</div>
+
+            <button type="button" class="dropdown-item" (click)="openSettings()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Configuración del Sistema</span>
+            </button>
+
+            <!-- Acceso Rápido: Alternar Tema Claro / Oscuro -->
+            <button type="button" class="dropdown-item" (click)="toggleTheme()">
+              <svg *ngIf="settings.theme === 'Claro'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+              <svg *ngIf="settings.theme !== 'Claro'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <span>{{ settings.theme === 'Claro' ? 'Cambiar a Modo Oscuro' : 'Cambiar a Modo Claro' }}</span>
+            </button>
+
+            <div class="dropdown-divider"></div>
+
+            <button type="button" class="dropdown-item item-logout" (click)="logout()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       </ng-container>
+
       <ng-template #loggedOut>
         <a routerLink="/login" class="nav-link">Ingresar</a>
         <a routerLink="/register" class="btn btn-primary">Crear Cuenta</a>
@@ -22,3 +128,203 @@
     </div>
   </div>
 </nav>
+
+<!-- Modal de Configuración del Sistema -->
+<div class="modal-backdrop" *ngIf="showSettingsModal" (click)="closeSettings()">
+  <div class="card settings-modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title">Configuración del Sistema</h3>
+        <p class="modal-subtitle">Personaliza los parámetros cuantitativos, visuales y de privacidad de tu entorno.</p>
+      </div>
+      <button class="btn-icon" (click)="closeSettings()" title="Cerrar">&times;</button>
+    </div>
+
+    <div class="settings-body">
+      <!-- SECCIÓN 1: PARÁMETROS FINANCIEROS Y GESTIÓN DE RIESGO -->
+      <div class="settings-section-divider">
+        <span class="settings-section-tag">GESTIÓN FINANCIERA & RIESGO</span>
+      </div>
+
+      <!-- Cuenta Principal Predeterminada -->
+      <div class="settings-group" *ngIf="accounts.length > 0">
+        <div class="setting-text">
+          <label class="setting-label">Cuenta Principal (Predeterminada)</label>
+          <span class="setting-desc">Portafolio que se cargará por defecto al iniciar sesión o acceder a la plataforma.</span>
+        </div>
+        <select class="form-control setting-select" [(ngModel)]="defaultAccountId" (change)="onDefaultAccountChange($event)">
+          <option *ngFor="let acc of accounts" [value]="acc.id_account">
+            {{ acc.name }} ({{ acc.market_type }}){{ acc.is_default ? ' [Principal Actual]' : '' }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Moneda Base -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Moneda Base de Cálculo</label>
+          <span class="setting-desc">Moneda de referencia para consolidar el PnL, lotajes y balance.</span>
+        </div>
+        <select class="form-control setting-select" [(ngModel)]="settings.baseCurrency">
+          <option value="USD">USD ($ - Dólar Estadounidense)</option>
+          <option value="EUR">EUR (€ - Euro)</option>
+          <option value="GBP">GBP (£ - Libra Esterlina)</option>
+          <option value="JPY">JPY (¥ - Yen Japonés)</option>
+          <option value="COP">COP ($ - Peso Colombiano)</option>
+          <option value="MXN">MXN ($ - Peso Mexicano)</option>
+        </select>
+      </div>
+
+      <!-- Riesgo Predeterminado -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Riesgo Sugerido por Operación (%)</label>
+          <span class="setting-desc">Porcentaje de capital asignado por defecto al registrar nuevas órdenes.</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="number" step="0.1" min="0.1" max="10" class="form-control setting-input" [(ngModel)]="settings.defaultRisk" style="width: 100px;">
+          <span style="font-size: 0.85rem; color: #94a3b8;">%</span>
+        </div>
+      </div>
+
+      <!-- Límite de Pérdida Diaria (Drawdown Alert) -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Límite de Pérdida Máxima Diaria ($ USD)</label>
+          <span class="setting-desc">Umbral para alertar y prevenir sobreoperación o pérdidas excesivas en el día.</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 0.85rem; color: #94a3b8;">$</span>
+          <input type="number" step="10" min="0" class="form-control setting-input" [(ngModel)]="settings.maxDailyLoss" style="width: 120px;" placeholder="250">
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2: PRIVACIDAD Y VISUALIZACIÓN -->
+      <div class="settings-section-divider">
+        <span class="settings-section-tag">APARIENCIA & VISUALIZACIÓN</span>
+      </div>
+
+      <!-- Tema Visual del Sistema (Claro / Oscuro) -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Tema Visual del Sistema</label>
+          <span class="setting-desc">Alterna entre el tema oscuro institucional y el tema claro de alto contraste.</span>
+        </div>
+        <div class="theme-switcher-buttons" style="display: flex; gap: 8px;">
+          <button type="button" 
+                  class="theme-choice-btn" 
+                  [class.active]="settings.theme !== 'Claro'" 
+                  (click)="setTheme('Oscuro')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <span>Oscuro</span>
+          </button>
+          <button type="button" 
+                  class="theme-choice-btn" 
+                  [class.active]="settings.theme === 'Claro'" 
+                  (click)="setTheme('Claro')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span>Claro</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modo Privacidad (Ocultar Saldos) -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Modo Privacidad (Ocultar Saldos en Pantalla)</label>
+          <span class="setting-desc">Enmascara balances y PnL con símbolos para grabaciones o streaming.</span>
+        </div>
+        <label class="switch-container">
+          <input type="checkbox" class="switch-input" [(ngModel)]="settings.privacyMode">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <!-- Mercado Predeterminado al Iniciar -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Mercado Predeterminado al Abrir Bitácora</label>
+          <span class="setting-desc">Pestaña de mercado seleccionada por defecto al entrar a la bitácora.</span>
+        </div>
+        <select class="form-control setting-select" [(ngModel)]="settings.defaultMarket">
+          <option value="Todos">Todos (Multimercado)</option>
+          <option value="Forex">Forex</option>
+          <option value="Futuros">Futuros</option>
+          <option value="Cryptos">Cryptos</option>
+          <option value="Acciones">Acciones</option>
+          <option value="Binarias">Opciones Binarias</option>
+        </select>
+      </div>
+
+      <!-- Cálculo Automático de PnL en Formularios -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Cálculo Automático de PnL en Formularios</label>
+          <span class="setting-desc">Calcula el beneficio estimado al ingresar cotización de entrada y salida.</span>
+        </div>
+        <label class="switch-container">
+          <input type="checkbox" class="switch-input" [(ngModel)]="settings.autoCalculatePnL">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <!-- SECCIÓN 3: OPERATIVA Y ASISTENCIA IA -->
+      <div class="settings-section-divider">
+        <span class="settings-section-tag">OPERATIVA & INTELIGENCIA ARTIFICIAL</span>
+      </div>
+
+      <!-- Atajos Rápidos de Teclado -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Atajos Rápidos de Teclado</label>
+          <span class="setting-desc">Permite usar [N] para nueva operación, [Ctrl+S] guardar y [Esc] cerrar.</span>
+        </div>
+        <label class="switch-container">
+          <input type="checkbox" class="switch-input" [(ngModel)]="settings.keyboardShortcuts">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <!-- Efectos de Sonido / Alertas Operativas -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Alertas Sonoras y Notificaciones de Trade</label>
+          <span class="setting-desc">Retroalimentación auditiva sutil al registrar o auditar operaciones.</span>
+        </div>
+        <label class="switch-container">
+          <input type="checkbox" class="switch-input" [(ngModel)]="settings.soundAlerts">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <!-- Motor de IA Gemini Flash -->
+      <div class="settings-group">
+        <div class="setting-text">
+          <label class="setting-label">Motor de Auditoría Psicológica y Conductual</label>
+          <span class="setting-desc">Diagnóstico de sesgos cognitivos y disciplina asistido por Gemini Flash.</span>
+        </div>
+        <div class="engine-badge">
+          <span class="status-dot"></span>
+          <span>Google Gemini Flash 3.7 (Online)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeSettings()">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="saveSettings()">Guardar Preferencias</button>
+    </div>
+  </div>
+</div>

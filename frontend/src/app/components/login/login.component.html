@@ -10,6 +10,16 @@
     </div>
 
     <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <!-- Campo Honeypot invisible antibot: los bots automáticos lo completan, los humanos no -->
+      <input 
+        type="text" 
+        name="hp_check" 
+        [(ngModel)]="hpCheck" 
+        style="display: none !important; position: absolute; left: -9999px; visibility: hidden; opacity: 0; pointer-events: none;" 
+        tabindex="-1" 
+        autocomplete="off"
+      >
+
       <div class="form-group">
         <label for="username">Usuario</label>
         <input 
@@ -18,6 +28,7 @@
           name="username" 
           class="form-control" 
           [(ngModel)]="credentials.username" 
+          (focus)="onFieldFocus()"
           required
           autocomplete="username"
         >
@@ -31,14 +42,26 @@
           name="password" 
           class="form-control" 
           [(ngModel)]="credentials.password" 
+          (focus)="onFieldFocus()"
           required
           autocomplete="current-password"
         >
       </div>
 
       <button type="submit" class="btn btn-primary w-100" [disabled]="!loginForm.form.valid || isLoading">
-        {{ isLoading ? 'Ingresando...' : 'Ingresar' }}
+        <span *ngIf="isVerifyingCaptcha" class="spinner-inline"></span>
+        <span *ngIf="isLoading && !isVerifyingCaptcha" class="spinner-inline"></span>
+        {{ isVerifyingCaptcha ? 'Verificando reCAPTCHA...' : (isLoading ? 'Ingresando...' : 'Ingresar') }}
       </button>
+
+      <!-- Badge informativo de reCAPTCHA Invisible -->
+      <div class="recaptcha-invisible-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recaptcha-shield-icon">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <path d="M9 12l2 2 4-4"></path>
+        </svg>
+        <span>Protegido por <strong>reCAPTCHA Invisible</strong> · <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacidad</a> · <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Condiciones</a></span>
+      </div>
     </form>
 
     <div class="auth-footer">

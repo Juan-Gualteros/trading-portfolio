@@ -21,12 +21,12 @@
 .calendar-title-group h3 {
   margin: 0;
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 .calendar-title-group p {
   margin: 0;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .calendar-nav {
   display: flex;
@@ -35,17 +35,21 @@
 }
 .btn-nav {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
+  transition: all 0.2s ease;
+}
+.btn-nav:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 .btn-today {
   background: rgba(59, 130, 246, 0.15);
   border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  color: #3b82f6;
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   cursor: pointer;
@@ -55,7 +59,7 @@
 .current-month-label {
   font-weight: 600;
   font-size: 1rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   min-width: 140px;
   text-align: center;
 }
@@ -67,7 +71,7 @@
   background: rgba(15, 23, 42, 0.6);
   padding: 0.8rem 1.2rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
 }
 .stat-pill {
   display: flex;
@@ -76,7 +80,7 @@
   font-size: 0.85rem;
 }
 .stat-pill .label {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .calendar-grid-header {
   display: grid;
@@ -86,7 +90,7 @@
   margin-bottom: 6px;
 }
 .weekday-col {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -100,7 +104,7 @@
 .calendar-cell {
   min-height: 80px;
   background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 8px;
   display: flex;
@@ -148,12 +152,12 @@
 .day-number {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .trades-badge {
   font-size: 0.65rem;
   background: rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  color: var(--text-primary);
   padding: 1px 5px;
   border-radius: 4px;
   font-weight: 500;
@@ -175,8 +179,8 @@
 .day-modal-content {
   max-width: 650px;
   width: 100%;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.5rem;
 }
@@ -188,12 +192,12 @@
 }
 .modal-header h4 {
   margin: 0;
-  color: #fff;
+  color: var(--text-primary);
 }
 .btn-close {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 1.5rem;
   cursor: pointer;
 }
@@ -205,6 +209,7 @@
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 .modal-trades-list {
   max-height: 350px;
@@ -216,4 +221,101 @@
 }
 .modal-table th, .modal-table td {
   padding: 0.6rem;
+}
+
+/* Light Theme Overrides */
+:host-context(body.light-theme) .calendar-title-group h3,
+body.light-theme .calendar-title-group h3 {
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .calendar-title-group p,
+body.light-theme .calendar-title-group p {
+  color: #475569 !important;
+}
+:host-context(body.light-theme) .current-month-label,
+body.light-theme .current-month-label {
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .btn-nav,
+body.light-theme .btn-nav {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .btn-nav:hover,
+body.light-theme .btn-nav:hover {
+  background: #E2E8F0 !important;
+}
+:host-context(body.light-theme) .month-stats-banner,
+body.light-theme .month-stats-banner {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .stat-pill .label,
+body.light-theme .stat-pill .label {
+  color: #475569 !important;
+}
+:host-context(body.light-theme) .weekday-col,
+body.light-theme .weekday-col {
+  color: #475569 !important;
+}
+:host-context(body.light-theme) .calendar-cell,
+body.light-theme .calendar-cell {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+}
+:host-context(body.light-theme) .calendar-cell:hover,
+body.light-theme .calendar-cell:hover {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+:host-context(body.light-theme) .calendar-cell.day-profit,
+body.light-theme .calendar-cell.day-profit {
+  background: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+}
+:host-context(body.light-theme) .calendar-cell.day-loss,
+body.light-theme .calendar-cell.day-loss {
+  background: #FEF2F2 !important;
+  border-color: #FECACA !important;
+}
+:host-context(body.light-theme) .calendar-cell.day-breakeven,
+body.light-theme .calendar-cell.day-breakeven {
+  background: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+:host-context(body.light-theme) .day-number,
+body.light-theme .day-number {
+  color: #334155 !important;
+}
+:host-context(body.light-theme) .trades-badge,
+body.light-theme .trades-badge {
+  background: #E2E8F0 !important;
+  color: #334155 !important;
+}
+:host-context(body.light-theme) .day-modal-content,
+body.light-theme .day-modal-content {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+}
+:host-context(body.light-theme) .day-modal-content .modal-header h4,
+body.light-theme .day-modal-content .modal-header h4 {
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .day-modal-summary,
+body.light-theme .day-modal-summary {
+  background: #F8FAFC !important;
+  color: #0F172A !important;
+}
+:host-context(body.light-theme) .modal-table th,
+body.light-theme .modal-table th {
+  background: #F1F5F9 !important;
+  color: #475569 !important;
+}
+:host-context(body.light-theme) .modal-table td,
+body.light-theme .modal-table td {
+  color: #0F172A !important;
+  border-color: #E2E8F0 !important;
 }
